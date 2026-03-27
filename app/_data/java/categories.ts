@@ -14,7 +14,7 @@ export const JAVA_CATEGORIES: JavaCategory[] = [
   {
     slug: "validation",
     name: "入力値バリデーション",
-    articleCount: 4,
+    articleCount: 5,
     summary: "数値、文字列、日付、業務ルールの検証を扱う。",
     priority: "high",
     purpose: "金額、割合、単位のように業務ロジックへ直結する入力値を、破綻しにくい設計で扱えるようにする。",
@@ -124,7 +124,7 @@ export const JAVA_CATEGORIES: JavaCategory[] = [
   {
     slug: "encoding",
     name: "エンコーディング・圧縮",
-    articleCount: 2,
+    articleCount: 4,
     summary: "Base64 と ZIP/GZIP を中心に扱う。",
     priority: "medium",
     purpose: "文字コードと圧縮処理の基本を実務視点で整理する。",
@@ -154,8 +154,8 @@ export const JAVA_CATEGORIES: JavaCategory[] = [
   {
     slug: "concurrency",
     name: "並行処理・メモリ",
-    articleCount: 3,
-    summary: "Atomic 操作、DB 採番、OOM の基本観点を扱う。",
+    articleCount: 5,
+    summary: "Atomic 操作、DB 採番、OOM、CompletableFuture、仮想スレッドを扱う。",
     priority: "medium",
     purpose: "競合やメモリ問題の入口を押さえる。",
     audience: "競合制御や性能課題に触れる開発者。",

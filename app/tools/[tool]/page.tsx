@@ -18,6 +18,7 @@ import { SqlFormatterTool } from "../_components/SqlFormatterTool"
 import { WarekiTool } from "../_components/WarekiTool"
 import { CsvJsonTool } from "../_components/CsvJsonTool"
 import { JsonToTsTool } from "../_components/JsonToTsTool"
+import { HashTool } from "../_components/HashTool"
 
 function renderToolComponent(entry: ToolDefinition): ReactNode | null {
   switch (entry.slug) {
@@ -76,6 +77,8 @@ function renderToolComponent(entry: ToolDefinition): ReactNode | null {
       return <CsvJsonTool />
     case "json-to-ts":
       return <JsonToTsTool />
+    case "hash":
+      return <HashTool />
     default:
       return null
   }

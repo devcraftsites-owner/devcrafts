@@ -504,4 +504,213 @@ public class InputValidator {
     }
 }`,
 },
+{
+  slug: "email-validation",
+  title: "Java でメールアドレスバリデーションを実装する方法と実務の注意点",
+  categorySlug: "validation",
+  summary: "RFC 準拠の形式チェックからドメイン検証まで、段階的なメールアドレスバリデーションを Pure Java で実装する。",
+  version: "Java 17",
+  tags: ["メールアドレス", "バリデーション", "RFC 5321", "InternetAddress", "正規表現", "入力検証"],
+  apiNames: ["InternetAddress", "Pattern", "Matcher", "InetAddress.getByName"],
+  description: "Java でメールアドレスの形式チェック・ドメイン検証・MX レコード確認を段階的に実装する方法を、正規表現と DNS ルックアップで外部ライブラリ不要の Pure Java で Java 8/17/21 対応で解説する。",
+  lead: "メールアドレスのバリデーションは、一見すると正規表現ひとつで片付きそうに見えます。しかし実務で扱うと、RFC 5321 の仕様が想像以上に広く、コメント付きアドレスや引用符で囲まれたローカル部など「形式としては正しいが実運用では使われない」パターンが大量に存在します。InternetAddress.validate() は Jakarta Mail 依存であり、しかもコメント付きアドレスを許容するため、そのまま使うとユーザー入力のバリデーションとしては緩すぎるケースがあります。逆に、正規表現を厳密にしすぎると「+」付きアドレスや新しい TLD を弾いてしまい、正当なユーザーの登録を妨げるという問題も起こります。この記事では、形式チェック、ドメイン部の構造検証、MX レコードの存在確認という3段階のアプローチで、実務に適したバリデーションを Pure Java で組み立てます。",
+  useCases: [
+    "ユーザー登録フォームでメールアドレスの形式と到達可能性を事前チェックする",
+    "CSV インポート時にメールアドレス列のデータクレンジングと不正値の検出を行う",
+    "メール配信システムで送信前にバウンスリスクの高いアドレスをフィルタリングする",
+  ],
+  cautions: [
+    "InternetAddress.validate() はコメント付きアドレス（例: user(comment)@example.com）を許容するため、ユーザー入力のバリデーションには不向きな場合がある。strict モードでも RFC 822 準拠の範囲で通過する。",
+    "正規表現で「+」記号を弾くと、Gmail のエイリアス機能（user+tag@gmail.com）を使っているユーザーが登録できなくなる。意図的に除外する場合は仕様として明記すること。",
+    "MX レコードの DNS ルックアップはネットワーク I/O を伴うため、大量のアドレスを一括検証する場合はタイムアウトとスロットリングを設ける必要がある。",
+    "国際化ドメイン名（IDN）は Punycode に変換してから検証する必要がある。java.net.IDN.toASCII() で変換できるが、変換失敗時の例外処理を忘れないこと。",
+  ],
+  relatedArticleSlugs: ["input-validation", "unit-conversion"],
+  versionCoverage: {
+    java8: "Pattern と Matcher は Java 8 から使用可能。DNS ルックアップも InetAddress で同様に書ける。ただし var が使えないため型宣言が冗長になる。",
+    java17: "var による型推論で記述量が減る。record でバリデーション結果を構造化でき、正規表現パターンの可読性も向上する。",
+    java21: "API 自体は Java 17 と同一だが、sealed interface でバリデーションレベル（形式のみ・ドメイン検証あり・MX 確認あり）を型として表現し、switch 式で分岐を網羅できる。",
+    java8Code: `// Java 8: 明示的な型宣言でバリデーション
+Pattern pattern = Pattern.compile(
+    "^[a-zA-Z0-9._%+\\\\-]+@[a-zA-Z0-9.\\\\-]+\\\\.[a-zA-Z]{2,}$");
+Matcher matcher = pattern.matcher(email);
+boolean isValid = matcher.matches();
+// 結果は List<String> で返す
+List<String> errors = new ArrayList<>();
+if (!isValid) {
+    errors.add("メールアドレスの形式が不正です");
+}`,
+    java17Code: `// Java 17: var + record で結果を構造化
+record EmailCheckResult(boolean valid, String reason) {}
+var pattern = Pattern.compile(
+    "^[a-zA-Z0-9._%+\\\\-]+@[a-zA-Z0-9.\\\\-]+\\\\.[a-zA-Z]{2,}$");
+var result = pattern.matcher(email).matches()
+    ? new EmailCheckResult(true, "")
+    : new EmailCheckResult(false, "形式が不正です");`,
+    java21Code: `// Java 21: sealed interface でバリデーションレベルを型安全に
+sealed interface ValidationLevel {
+    record FormatOnly(String email) implements ValidationLevel {}
+    record WithDomain(String email) implements ValidationLevel {}
+    record WithMx(String email) implements ValidationLevel {}
+}
+EmailCheckResult check(ValidationLevel level) {
+    return switch (level) {
+        case FormatOnly f  -> checkFormat(f.email());
+        case WithDomain d  -> checkDomain(d.email());
+        case WithMx m      -> checkMxRecord(m.email());
+    };
+}`,
+  },
+  libraryComparison: [
+    { name: "正規表現のみ（Pure Java）", whenToUse: "外部依存ゼロでメールアドレスの基本的な形式チェックを行いたいとき。パターンの内容を自分で把握・調整できる。", tradeoff: "RFC 5321 を完全にカバーする正規表現は非常に複雑になり保守しにくい。実務では「よくある形式を通す」程度の正規表現で十分なケースが多い。" },
+    { name: "InternetAddress（Jakarta Mail）", whenToUse: "Jakarta Mail をすでにプロジェクトで使っている場合。validate() でパースエラーを検出できる。", tradeoff: "外部依存（jakarta.mail）が必要。RFC 822 準拠のためコメント付きアドレスやクォート付きローカル部も通過する。ユーザー入力の検証としては緩すぎる場合がある。" },
+    { name: "Apache Commons Validator（EmailValidator）", whenToUse: "汎用的なメール形式チェックを手早く済ませたいとき。ローカル部・ドメイン部の長さ制限もチェックしてくれる。", tradeoff: "commons-validator への依存が増える。TLD の許可リストが古い場合があり、新しい TLD（.dev, .app など）を弾く可能性がある。カスタマイズの柔軟性は正規表現のほうが高い。" },
+  ],
+  faq: [
+    { question: "「+」付きアドレス（user+tag@gmail.com）はバリデーションで弾くべきですか？", answer: "Gmail のエイリアス機能で広く使われているため、通常は許可すべきです。正規表現のローカル部に「+」を含めておけば対応できます。" },
+    { question: "日本語ドメイン（例: メール@例え.jp）は検証できますか？", answer: "java.net.IDN.toASCII() で Punycode に変換してから通常のドメイン検証を行います。変換に失敗した場合はドメインとして不正と判断できます。" },
+    { question: "バリデーションはどこまで厳密にすべきですか？", answer: "形式チェックは「明らかに不正なものを弾く」程度にとどめ、到達確認は実際にメールを送って確認するのが確実です。厳密すぎると正当なアドレスを弾くリスクがあります。" },
+  ],
+  codeTitle: "段階的メールアドレスバリデーション",
+  codeSample: `import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+
+public class EmailValidator {
+
+    // バリデーション結果
+    record ValidationResult(boolean valid, List<String> errors) {
+        static ValidationResult ok() {
+            return new ValidationResult(true, List.of());
+        }
+        static ValidationResult of(List<String> errors) {
+            return new ValidationResult(
+                errors.isEmpty(), List.copyOf(errors));
+        }
+    }
+
+    // RFC 5321 の実用的な範囲をカバーする正規表現
+    // 「+」付きエイリアス、ハイフン付きドメインを許容
+    private static final Pattern EMAIL_PATTERN =
+        Pattern.compile(
+            "^[a-zA-Z0-9._%+\\\\-]+@[a-zA-Z0-9]"
+            + "([a-zA-Z0-9\\\\-]*[a-zA-Z0-9])?"
+            + "(\\\\.[a-zA-Z0-9]([a-zA-Z0-9\\\\-]*"
+            + "[a-zA-Z0-9])?)*\\\\.[a-zA-Z]{2,}$");
+
+    private static final int MAX_LOCAL_LENGTH = 64;
+    private static final int MAX_DOMAIN_LENGTH = 253;
+    private static final int MAX_TOTAL_LENGTH = 254;
+
+    /** 第1段階: 形式チェック */
+    public static List<String> checkFormat(String email) {
+        var errors = new ArrayList<String>();
+        if (email == null || email.isBlank()) {
+            errors.add("メールアドレスは必須です");
+            return errors;
+        }
+        if (email.length() > MAX_TOTAL_LENGTH) {
+            errors.add("メールアドレスは"
+                + MAX_TOTAL_LENGTH + "文字以内です");
+        }
+        var atIndex = email.indexOf('@');
+        if (atIndex < 0) {
+            errors.add("@ が含まれていません");
+            return errors;
+        }
+        var local = email.substring(0, atIndex);
+        var domain = email.substring(atIndex + 1);
+        if (local.length() > MAX_LOCAL_LENGTH) {
+            errors.add("ローカル部は"
+                + MAX_LOCAL_LENGTH + "文字以内です");
+        }
+        if (domain.length() > MAX_DOMAIN_LENGTH) {
+            errors.add("ドメイン部は"
+                + MAX_DOMAIN_LENGTH + "文字以内です");
+        }
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            errors.add("メールアドレスの形式が不正です");
+        }
+        return errors;
+    }
+
+    /** 第2段階: ドメインの DNS 解決チェック */
+    public static List<String> checkDomain(String email) {
+        var errors = checkFormat(email);
+        if (!errors.isEmpty()) {
+            return errors;
+        }
+        var domain = email.substring(
+            email.indexOf('@') + 1);
+        try {
+            InetAddress.getByName(domain);
+        } catch (UnknownHostException e) {
+            errors.add("ドメイン " + domain
+                + " が解決できません");
+        }
+        return errors;
+    }
+
+    /** 第3段階: MX レコードの存在確認 */
+    public static List<String> checkMxRecord(
+            String email) {
+        var errors = checkDomain(email);
+        if (!errors.isEmpty()) {
+            return errors;
+        }
+        var domain = email.substring(
+            email.indexOf('@') + 1);
+        try {
+            // JNDI で MX レコードを照会
+            var env = new java.util.Hashtable<
+                String, String>();
+            env.put("java.naming.factory.initial",
+                "com.sun.jndi.dns.DnsContextFactory");
+            var ctx = new javax.naming.directory
+                .InitialDirContext(env);
+            var attrs = ctx.getAttributes(
+                domain, new String[]{"MX"});
+            var mx = attrs.get("MX");
+            if (mx == null || mx.size() == 0) {
+                errors.add("ドメイン " + domain
+                    + " に MX レコードがありません");
+            }
+            ctx.close();
+        } catch (javax.naming.NamingException e) {
+            errors.add("MX レコードの照会に失敗: "
+                + e.getMessage());
+        }
+        return errors;
+    }
+
+    /** 全段階を実行して結果を返す */
+    public static ValidationResult validate(
+            String email) {
+        return ValidationResult.of(checkMxRecord(email));
+    }
+
+    public static void main(String[] args) {
+        // 形式チェックのみ
+        System.out.println("=== 形式チェック ===");
+        var r1 = checkFormat("user+tag@example.com");
+        System.out.println("user+tag@example.com -> "
+            + (r1.isEmpty() ? "OK" : r1));
+
+        var r2 = checkFormat("invalid@@example");
+        System.out.println("invalid@@example -> " + r2);
+
+        // 全段階
+        System.out.println("\\n=== 全段階バリデーション ===");
+        var result = validate("test@example.com");
+        if (result.valid()) {
+            System.out.println("バリデーション OK");
+        } else {
+            result.errors().forEach(e ->
+                System.out.println("  - " + e));
+        }
+    }
+}`,
+},
 ]

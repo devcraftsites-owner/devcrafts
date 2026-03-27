@@ -564,6 +564,47 @@ export const TOOLS: ToolDefinition[] = [
     ],
     resultPreview: "type Root = {\\n  id: number\\n  name: string\\n  active: boolean\\n  tags: string[]\\n  profile: {\\n    department: string\\n    joinedAt: string\\n  }\\n}",
   },
+  {
+    slug: "hash",
+    name: "ハッシュ生成",
+    priority: "supporting",
+    category: "security",
+    status: "ready",
+    summary: "テキストから SHA-256 / SHA-512 / SHA-1 / MD5 のハッシュ値を生成する。",
+    description:
+      "テキストを入力すると SHA-256・SHA-512・SHA-384・SHA-1・MD5 のハッシュ値を Hex と Base64 の両形式で即座に確認できる。パスワードハッシュの検算やファイル整合性チェックの事前確認に使える。",
+    keywords: ["ハッシュ", "SHA-256", "SHA-512", "SHA-1", "MD5", "ダイジェスト", "チェックサム", "hash"],
+    features: [
+      "SHA-256 / SHA-512 / SHA-384 / SHA-1 / MD5 の5アルゴリズム対応",
+      "結果を Hex と Base64 の両方で表示",
+      "入力バイト数と出力バイト数を表示",
+      "日本語（UTF-8 マルチバイト）のハッシュにも対応",
+    ],
+    cautions: [
+      "MD5 と SHA-1 は衝突耐性が破られており、セキュリティ用途には推奨されません。チェックサムや後方互換目的での利用に留めてください。",
+      "パスワードの保存には、このツールで生成する単純ハッシュではなく、PBKDF2 や bcrypt などのストレッチングハッシュを使ってください。",
+      "ファイルのハッシュ値を計算する機能はありません。テキスト入力のみ対応しています。",
+    ],
+    faq: [
+      {
+        question: "SHA-256 と MD5 のどちらを使うべきですか。",
+        answer: "セキュリティが求められる場面では SHA-256 以上を使ってください。MD5 は衝突攻撃が現実的なコストで可能なため、整合性チェックや既存システムとの互換用途に限定すべきです。",
+      },
+      {
+        question: "同じ文字列なのにハッシュ値が他のツールと異なります。",
+        answer: "文字エンコーディングの違いが原因です。このツールは UTF-8 でエンコードしたバイト列をハッシュ化します。Shift_JIS や Latin-1 で計算するツールとは結果が変わります。",
+      },
+      {
+        question: "パスワードの保存にこのハッシュ値を使ってよいですか。",
+        answer: "使わないでください。SHA-256 でも GPU で高速に総当たりできます。パスワード保存には PBKDF2・bcrypt・Argon2 などのストレッチングハッシュを使い、ユーザーごとにランダムなソルトを付けてください。",
+      },
+    ],
+    inputFields: [
+      { label: "テキスト", type: "text", value: "hello", helpText: "ハッシュ化したい文字列" },
+    ],
+    resultPreview: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+    relatedArticleSlugs: ["password-hashing", "aes-encryption"],
+  },
 ]
 
 export const PRIORITY_TOOLS = TOOLS.filter((tool) => tool.priority === "priority")

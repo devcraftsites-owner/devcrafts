@@ -279,4 +279,425 @@ public class ZipGzipExample {
     }
 }`,
   },
+{
+    slug: "mojibake-troubleshooting",
+    title: "文字化けの原因切り分けと対処法（Java 標準 API で）",
+    categorySlug: "encoding",
+    summary: "Shift_JIS・UTF-8 変換で化ける文字の具体例と、DB・ファイル・HTTP の各レイヤーでの原因切り分け手順を整理する。",
+    version: "Java 17",
+    tags: ["文字化け", "Shift_JIS", "UTF-8", "MS932", "文字コード", "Charset", "エンコーディング"],
+    apiNames: ["Charset", "StandardCharsets", "InputStreamReader", "OutputStreamWriter", "String.getBytes", "new String(byte[], Charset)"],
+    description: "Java で発生する文字化けの典型パターンと原因切り分け手順を、Charset・InputStreamReader・OutputStreamWriter など標準 API を使った対処法とともに Java 8/17/21 対応で解説する。",
+    lead: "「本番環境でだけ文字化けする」「CSV を取り込んだら特定の文字だけ壊れた」――文字化けは Java の業務開発で繰り返し踏まれるトラブルの筆頭です。原因は単純に見えて、実際にはファイル・DB・HTTP レスポンス・JVM 起動オプションと複数のレイヤーが絡み合うため、切り分けに手間取ることが少なくありません。特に Shift_JIS（MS932）と UTF-8 の変換では、波ダッシュ（\u301C）やバックスラッシュ（\u00A5）など「この文字だけ化ける」パターンが存在し、単体テストでは見落としがちです。この記事では、文字化けが起きる仕組みを byte 列レベルで確認し、InputStreamReader / OutputStreamWriter での明示的な Charset 指定、Charset.defaultCharset() に頼ることの危険性、-Dfile.encoding の影響範囲を実務の観点から整理します。",
+    useCases: [
+      "外部システムから受信した Shift_JIS の CSV ファイルを UTF-8 の DB に取り込む際、特定文字の文字化けを防ぐ",
+      "レガシーシステムとの連携で MS932 エンコーディングの固定長ファイルを読み書きする",
+      "HTTP レスポンスの Content-Type に charset 指定が漏れている API からのデータ取得で文字化けを回避する",
+    ],
+    cautions: [
+      "Charset.defaultCharset() は JVM の起動オプションや OS の設定に依存する。本番と開発環境で異なる値を返すことがあるため、コード中で直接使わず StandardCharsets.UTF_8 のように明示的に指定すること",
+      "Shift_JIS と MS932（Windows-31J）は別物。Shift_JIS では波ダッシュ（\u301C）やローマ数字（\u2160 など）がマッピングされていないが、MS932 では対応している。Windowsで作られたファイルには MS932 を使うのが安全",
+      "String.getBytes() を引数なしで呼ぶと defaultCharset が使われる。環境によって結果が変わるため、必ず Charset 引数を渡すこと。レビューで見つけたら即修正すべきポイント",
+      "一度壊れたバイト列から元の文字を復元することは基本的にできない。文字化けの「修復」は、壊れ方のパターンから元のエンコーディングを推測して再変換する試行であり、確実ではないことを理解しておくこと",
+    ],
+    relatedArticleSlugs: ["charset-conversion-pitfalls", "base64-encoding"],
+    versionCoverage: {
+      java8: "Charset.defaultCharset() が OS ロケールに完全依存する。Windows では MS932、Linux では UTF-8 が返ることが多く、環境差異による文字化けの温床になりやすい。",
+      java17: "JEP 400 の準備段階として UTF-8 がデフォルトに近づく。ただし -Dfile.encoding を明示しない場合、まだ OS 依存の挙動が残るため過信は禁物。",
+      java21: "JEP 400 により UTF-8 が標準デフォルトとなり、Charset.defaultCharset() は原則 UTF-8 を返す。ただし -Dfile.encoding=COMPAT で旧挙動に戻せるため、既存システムの移行時には確認が必要。",
+      java8Code: `// Java 8: Charset を明示的に指定してファイル読み込み
+Charset sjis = Charset.forName("MS932");
+FileInputStream fis = new FileInputStream("input.csv");
+InputStreamReader reader = new InputStreamReader(fis, sjis);
+BufferedReader br = new BufferedReader(reader);
+String line;
+while ((line = br.readLine()) != null) {
+    byte[] utf8Bytes = line.getBytes(StandardCharsets.UTF_8);
+    System.out.println(new String(utf8Bytes, StandardCharsets.UTF_8));
+}
+br.close();`,
+      java17Code: `// Java 17: var + try-with-resources で簡潔に
+var sjis = Charset.forName("MS932");
+try (var reader = new BufferedReader(
+        new InputStreamReader(new FileInputStream("input.csv"), sjis))) {
+    String line;
+    while ((line = reader.readLine()) != null) {
+        var utf8Bytes = line.getBytes(StandardCharsets.UTF_8);
+        System.out.println(new String(utf8Bytes, StandardCharsets.UTF_8));
+    }
+}`,
+      java21Code: `// Java 21: defaultCharset() が UTF-8 前提の環境
+// Charset.defaultCharset() は UTF-8 を返すが、
+// レガシーファイルには依然として明示指定が必要
+var sjis = Charset.forName("MS932");
+try (var lines = Files.lines(Path.of("input.csv"), sjis)) {
+    lines.map(line -> line.replace("\u301C", "\uFF5E")) // 波ダッシュ正規化
+         .forEach(System.out::println);
+}
+// -Dfile.encoding=COMPAT で旧挙動に戻す場合の確認も忘れずに`,
+    },
+    libraryComparison: [
+      { name: "標準 API（Charset / StandardCharsets）", whenToUse: "エンコーディングが既知で、明示的に Charset を指定して読み書きする場合。依存ゼロで Java 8 以降どの環境でも動く。", tradeoff: "エンコーディングの自動判定機能はない。入力データの文字コードが不明な場合は、別途判定ロジックが必要になる。" },
+      { name: "ICU4J（CharsetDetector）", whenToUse: "テキストのエンコーディングが不明で、バイト列から自動判定したいとき。多言語対応の正規化や変換テーブルも充実している。", tradeoff: "JAR サイズが大きく（10MB超）、単純なエンコーディング指定だけなら過剰。判定精度も100%ではなく、短いテキストでは誤判定が起きる。" },
+      { name: "juniversalchardet（Mozilla 由来）", whenToUse: "ファイルやストリームの文字コードを自動判定したい場合。ICU4J より軽量で、日本語テキストの判定精度が比較的高い。", tradeoff: "メンテナンス状況にばらつきがあり、フォークが複数存在する。自動判定はあくまで推測であり、業務データでは明示指定のほうが確実。" },
+    ],
+    faq: [
+      { question: "文字化けの典型的なパターンにはどのようなものがありますか。", answer: "UTF-8 のテキストを Shift_JIS として読むと「譁\u30fb蟄怜喧」のような漢字の羅列になります。逆に Shift_JIS を UTF-8 で読むと「�」（U+FFFD）に置換されるか、半端なバイトで例外が発生します。" },
+      { question: "MS932 と Shift_JIS の違いは何ですか。", answer: "MS932（Windows-31J）は Microsoft が Shift_JIS を拡張したもので、丸数字（\u2460 等）やローマ数字（\u2160 等）、波ダッシュ（\u301C/\uFF5E）を含みます。Windows 環境で作られたファイルは Shift_JIS ではなく MS932 で読むのが安全です。" },
+      { question: "Java の内部文字エンコーディングは何ですか。", answer: "Java は内部的に UTF-16 で文字列を保持しています（Java 9 以降は Compact Strings により Latin-1 も使用）。外部との入出力時に Charset を指定して変換する設計のため、内部表現と外部表現の区別を意識することが重要です。" },
+    ],
+    codeTitle: "MojibakeTroubleshooting.java",
+    codeSample: `import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * 文字化けの原因切り分けと対処のためのユーティリティ。
+ * バイト列のダンプ、エンコーディング推定、変換を行う。
+ */
+public class MojibakeTroubleshooting {
+
+    /** よく使うエンコーディングの一覧 */
+    private static final Charset[] CANDIDATE_CHARSETS = {
+        StandardCharsets.UTF_8,
+        Charset.forName("MS932"),
+        Charset.forName("EUC-JP"),
+        StandardCharsets.ISO_8859_1,
+    };
+
+    /**
+     * バイト列を16進数でダンプし、各エンコーディングでの解釈結果を表示する。
+     * 文字化けの原因を目視で切り分けるときに使う。
+     */
+    public static Map<String, String> dumpWithCharsets(byte[] data) {
+        var result = new LinkedHashMap<String, String>();
+        var hex = HexFormat.ofDelimiter(" ").formatHex(data);
+        result.put("HEX", hex);
+        for (var charset : CANDIDATE_CHARSETS) {
+            result.put(charset.name(), new String(data, charset));
+        }
+        return result;
+    }
+
+    /**
+     * 文字列を指定エンコーディングのバイト列に変換し、
+     * さらに別のエンコーディングで文字列に戻すシミュレーション。
+     * 「この組み合わせで化けるか」を確認するのに使う。
+     */
+    public static String simulateMojibake(String text,
+            Charset writeCharset, Charset readCharset) {
+        var bytes = text.getBytes(writeCharset);
+        return new String(bytes, readCharset);
+    }
+
+    /**
+     * InputStreamReader / OutputStreamWriter で
+     * Charset を明示指定した安全な変換を行う。
+     * Shift_JIS（MS932）ファイルを UTF-8 に変換する典型パターン。
+     */
+    public static byte[] convertEncoding(byte[] sourceData,
+            Charset fromCharset, Charset toCharset) throws Exception {
+        var output = new ByteArrayOutputStream();
+        try (var reader = new BufferedReader(
+                new InputStreamReader(
+                    new ByteArrayInputStream(sourceData), fromCharset));
+             var writer = new PrintWriter(
+                new OutputStreamWriter(output, toCharset))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                writer.println(line);
+            }
+        }
+        return output.toByteArray();
+    }
+
+    /**
+     * 波ダッシュ問題のチェック。
+     * Shift_JIS と MS932 でマッピングが異なる代表的な文字を検証する。
+     */
+    public static void checkWaveDash() {
+        var waveDash = "\u301C";       // WAVE DASH（Unicode 標準）
+        var fullwidthTilde = "\uFF5E"; // FULLWIDTH TILDE（Windows 系）
+
+        System.out.println("=== 波ダッシュ問題の検証 ===");
+        System.out.println("WAVE DASH (U+301C): " + waveDash);
+        System.out.println("FULLWIDTH TILDE (U+FF5E): " + fullwidthTilde);
+
+        var ms932 = Charset.forName("MS932");
+
+        // MS932 でのバイト表現を比較
+        var waveDashBytes = waveDash.getBytes(ms932);
+        var tildaBytes = fullwidthTilde.getBytes(ms932);
+        var hex = HexFormat.ofDelimiter(" ");
+        System.out.println("WAVE DASH → MS932: " + hex.formatHex(waveDashBytes));
+        System.out.println("FULLWIDTH TILDE → MS932: " + hex.formatHex(tildaBytes));
+    }
+
+    /**
+     * defaultCharset() の確認。
+     * 環境依存の挙動を把握するためのチェック用。
+     */
+    public static void showEnvironmentInfo() {
+        System.out.println("=== 環境のエンコーディング情報 ===");
+        System.out.println("Charset.defaultCharset(): "
+            + Charset.defaultCharset());
+        System.out.println("file.encoding: "
+            + System.getProperty("file.encoding"));
+        System.out.println("stdout.encoding: "
+            + System.getProperty("stdout.encoding", "(未設定)"));
+    }
+
+    public static void main(String[] args) throws Exception {
+        showEnvironmentInfo();
+        System.out.println();
+
+        // 文字化けシミュレーション
+        var testText = "請求書　金額：￥1,000（税込）〜";
+        System.out.println("=== 文字化けシミュレーション ===");
+        System.out.println("元の文字列: " + testText);
+        System.out.println("UTF-8→MS932で読む: "
+            + simulateMojibake(testText,
+                StandardCharsets.UTF_8, Charset.forName("MS932")));
+        System.out.println("MS932→UTF-8で読む: "
+            + simulateMojibake(testText,
+                Charset.forName("MS932"), StandardCharsets.UTF_8));
+        System.out.println();
+
+        // バイト列ダンプ
+        var sampleBytes = testText.getBytes(StandardCharsets.UTF_8);
+        System.out.println("=== バイト列ダンプ（UTF-8 で書き込み） ===");
+        var dump = dumpWithCharsets(sampleBytes);
+        dump.forEach((charset, text) ->
+            System.out.printf("  %-12s: %s%n", charset, text));
+        System.out.println();
+
+        // エンコーディング変換
+        var ms932Data = testText.getBytes(Charset.forName("MS932"));
+        var utf8Data = convertEncoding(ms932Data,
+            Charset.forName("MS932"), StandardCharsets.UTF_8);
+        System.out.println("=== MS932 → UTF-8 変換 ===");
+        System.out.println("変換結果: "
+            + new String(utf8Data, StandardCharsets.UTF_8));
+        System.out.println();
+
+        // 波ダッシュ問題
+        checkWaveDash();
+    }
+}`,
+  },
+{
+    slug: "charset-conversion-pitfalls",
+    title: "Java 文字コード変換の落とし穴 — Shift_JIS・MS932・UTF-8 の違いと安全な変換",
+    categorySlug: "encoding",
+    summary: "Shift_JIS と MS932 のマッピング差異を整理し、CharsetEncoder/Decoder で変換不能文字を安全に検出・制御する実装パターン。",
+    version: "Java 17",
+    tags: ["文字コード", "Shift_JIS", "MS932", "UTF-8", "Charset", "変換", "マッピング"],
+    apiNames: ["Charset", "CharsetEncoder", "CharsetDecoder", "CodingErrorAction", "StandardCharsets", "String.getBytes"],
+    description: "Java で Shift_JIS・MS932・UTF-8 間の文字コード変換を安全に行う方法を、波ダッシュ問題や変換不能文字の検出、CodingErrorAction の使い分けとともに Java 8/17/21 対応で解説する。",
+    lead: "業務システムでは、外部システムとのファイル連携やレガシーデータベースの読み書きで、Shift_JIS や MS932 と UTF-8 の間で文字コード変換が必要になる場面が少なくありません。Java の Charset.forName(\"Shift_JIS\") と Charset.forName(\"MS932\") は名前が似ていますが、マッピングに微妙な違いがあり、波ダッシュ（\u301C）や丸数字（\u2460\u2461\u2462）、ローマ数字（\u2160\u2161\u2162）といった文字で変換結果が食い違う原因になります。この記事では、Shift_JIS と MS932 の違いを具体的なコードポイントレベルで整理し、CharsetEncoder と CharsetDecoder を使って変換不能文字を検出・制御する安全な実装パターンを解説します。CodingErrorAction の REPLACE・IGNORE・REPORT の使い分けや、変換できなかった文字をログに残す方法など、本番運用で必要になる実践的なポイントを取り上げます。",
+    useCases: [
+      "取引先から受信した Shift_JIS の CSV ファイルを UTF-8 に変換して取り込む際に、変換不能文字を検出してエラー行を報告する",
+      "外部システムが MS932 で送信してくる固定長電文を読み込み、社内の UTF-8 データベースに格納する際にマッピング差異を吸収する",
+      "レガシーな Oracle データベース（JA16SJISTILDE）から取得した文字列を UTF-8 の Web API レスポンスとして返すとき、波ダッシュが化けないよう変換を制御する",
+    ],
+    cautions: [
+      "Charset.forName(\"Shift_JIS\") は JIS X 0208 準拠のマッピングを使い、U+301C（波ダッシュ）を 0x8160 にマッピングする。一方 MS932 は U+FF5E（全角チルダ）を 0x8160 にマッピングするため、同じバイト列でも decode 結果が異なる",
+      "CodingErrorAction.REPLACE をデフォルトで使うと、変換できなかった文字が ? や \\uFFFD に静かに置き換わり、データ欠損に気づけない。本番環境では REPORT で例外を受けてログに記録するか、少なくとも置換が発生した件数を監視すること",
+      "String.getBytes(String charsetName) は変換不能文字を黙って ? に置換する。変換エラーを検出したい場合は CharsetEncoder を直接使い、onUnmappableCharacter(REPORT) を設定する必要がある",
+      "Java の Shift_JIS は NEC 特殊文字（丸数字 \u2460〜\u2473 など）をマッピングしない。Windows 環境で作成されたファイルにこれらの文字が含まれる場合は MS932（= Windows-31J）を使わないと文字化けする",
+    ],
+    relatedArticleSlugs: ["mojibake-troubleshooting", "base64-encoding"],
+    versionCoverage: {
+      java8: "Charset API 自体は Java 1.4 から存在し Java 8 でも同じ。Shift_JIS のマッピングは Sun 独自実装（sun.nio.cs.SJIS）で、波ダッシュ問題は JDK-6378911 に起因する。var は使えない。",
+      java17: "API の基本構造は Java 8 と同じだが、Shift_JIS/MS932 のマッピングに互換性を維持したまま内部実装が整理されている。var と record で変換結果の管理が簡潔に書ける。",
+      java21: "Charset 周りの API に本質的な変更はないが、MS932 と Shift_JIS のマッピング差は依然として残る。UTF-8 がデフォルト Charset になった（JEP 400、Java 18 以降）ため、Charset 未指定時の挙動が以前と変わる点に注意が必要。",
+      java8Code: `// Java 8: 型を明示して CharsetEncoder を構成
+CharsetEncoder encoder = Charset.forName("MS932").newEncoder();
+encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
+try {
+    ByteBuffer result = encoder.encode(CharBuffer.wrap(input));
+} catch (CharacterCodingException e) {
+    System.err.println("変換不能文字を検出: " + e.getMessage());
+}`,
+      java17Code: `// Java 17: var + メソッドチェーンで簡潔に記述
+var encoder = Charset.forName("MS932").newEncoder()
+    .onUnmappableCharacter(CodingErrorAction.REPORT);
+try {
+    var result = encoder.encode(CharBuffer.wrap(input));
+} catch (CharacterCodingException e) {
+    System.err.println("変換不能文字を検出: " + e.getMessage());
+}`,
+      java21Code: `// Java 21: UTF-8 がデフォルト Charset（JEP 400）
+// Charset.defaultCharset() は必ず UTF-8 を返す
+// 従来 OS 依存だった getBytes() の結果が統一される
+var defaultCs = Charset.defaultCharset(); // UTF-8 固定
+var encoder = Charset.forName("MS932").newEncoder()
+    .onUnmappableCharacter(CodingErrorAction.REPORT);
+var result = encoder.encode(CharBuffer.wrap(input));
+// MS932/Shift_JIS のマッピング差は Java 21 でも残る`,
+    },
+    libraryComparison: [
+      { name: "標準 API（CharsetEncoder / CharsetDecoder）", whenToUse: "変換不能文字の検出と制御を細かく行いたい場合。CodingErrorAction で REPLACE・IGNORE・REPORT を選べ、依存ゼロで動く。", tradeoff: "波ダッシュ問題などマッピング差異の吸収は自前で実装する必要がある。Shift_JIS と MS932 の使い分けをコード側で判断しなければならない。" },
+      { name: "ICU4J（CharsetDetector / CharsetICU）", whenToUse: "文字コードの自動判定が必要な場合や、Unicode 正規化（NFC/NFD）を含む高度な変換を行いたいとき。", tradeoff: "JAR サイズが約14MBと大きく、文字コード変換だけのために導入するには重い。自動判定の精度も100%ではないため、過信は禁物。" },
+      { name: "Apache Commons Codec（CharEncoding 定数）", whenToUse: "文字コード名の定数定義として使う程度。変換ロジック自体は提供していない。", tradeoff: "Java 7 以降は StandardCharsets で定数が揃うため、文字コード変換の目的では導入する理由がほぼない。" },
+    ],
+    faq: [
+      { question: "波ダッシュ問題とは何ですか。どう対処すればよいですか。", answer: "Unicode の U+301C（波ダッシュ）と U+FF5E（全角チルダ）が、Shift_JIS と MS932 で同じバイト 0x8160 に対応する問題です。Windows 環境のファイルなら MS932 で読み、JIS 準拠のデータなら Shift_JIS で読むのが基本的な対処法です。" },
+      { question: "MS932 と Shift_JIS はどちらを使うべきですか。", answer: "Windows で作成されたファイルや、丸数字・ローマ数字を含むデータには MS932 を使います。JIS X 0208 準拠が求められる通信プロトコルや、仕様書に Shift_JIS と明記されている場合はそちらを使います。迷ったら MS932 のほうが文字化けは少なくなります。" },
+      { question: "UTF-8 の BOM（Byte Order Mark）は付けるべきですか。", answer: "Java の StandardCharsets.UTF_8 は BOM なしです。Excel で開く CSV には BOM（0xEF 0xBB 0xBF）を先頭に付けると文字化けを防げます。それ以外の用途では BOM を付けないのが一般的です。" },
+    ],
+    codeTitle: "SafeCharsetConverter.java",
+    codeSample: `import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * CharsetEncoder/Decoder を使った安全な文字コード変換ユーティリティ。
+ * 変換不能文字を検出してログに記録する。
+ */
+public class SafeCharsetConverter {
+
+    record ConversionResult(byte[] data, List<String> warnings) {
+        boolean hasWarnings() { return !warnings.isEmpty(); }
+    }
+
+    /**
+     * 文字列を指定した文字コードのバイト列に変換する。
+     * 変換不能文字は ? に置換し、その位置と文字を warnings に記録する。
+     */
+    public static ConversionResult encode(String input, Charset targetCharset) {
+        var warnings = new ArrayList<String>();
+        var encoder = targetCharset.newEncoder();
+
+        // REPORT モードの canEncode で変換不能文字を事前検出する
+        for (int i = 0; i < input.length(); i++) {
+            var ch = input.charAt(i);
+            if (!encoder.canEncode(ch)) {
+                warnings.add("位置 %d: '%c' (U+%04X) は %s に変換できません"
+                        .formatted(i, ch, (int) ch, targetCharset.name()));
+            }
+        }
+
+        // 実際の変換は REPLACE モードで安全に実行する
+        var safeEncoder = targetCharset.newEncoder()
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE);
+
+        try {
+            var buffer = safeEncoder.encode(CharBuffer.wrap(input));
+            var result = new byte[buffer.remaining()];
+            buffer.get(result);
+            return new ConversionResult(result, warnings);
+        } catch (CharacterCodingException e) {
+            // REPLACE モードでは通常発生しないが、念のため
+            throw new RuntimeException("文字コード変換に失敗しました", e);
+        }
+    }
+
+    /**
+     * バイト列を指定した文字コードで文字列にデコードする。
+     * 不正バイトは REPORT で例外をスローする（厳格モード）。
+     */
+    public static String decodeStrict(byte[] data, Charset sourceCharset)
+            throws CharacterCodingException {
+        var decoder = sourceCharset.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        var charBuffer = decoder.decode(ByteBuffer.wrap(data));
+        return charBuffer.toString();
+    }
+
+    /**
+     * Shift_JIS と MS932 で同じバイト列のデコード結果が異なる文字を検出する。
+     */
+    public static void compareShiftJisAndMs932(byte[] data) {
+        var sjis = Charset.forName("Shift_JIS");
+        var ms932 = Charset.forName("MS932");
+
+        var sjisDecoder = sjis.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE);
+        var ms932Decoder = ms932.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE);
+
+        try {
+            var sjisText = sjisDecoder.decode(ByteBuffer.wrap(data)).toString();
+            var ms932Text = ms932Decoder.decode(ByteBuffer.wrap(data)).toString();
+
+            if (sjisText.equals(ms932Text)) {
+                System.out.println("Shift_JIS と MS932 のデコード結果は同一です");
+            } else {
+                System.out.println("デコード結果に差異があります:");
+                for (int i = 0; i < Math.min(sjisText.length(), ms932Text.length()); i++) {
+                    if (sjisText.charAt(i) != ms932Text.charAt(i)) {
+                        System.out.printf("  位置 %d: Shift_JIS='%c'(U+%04X)  MS932='%c'(U+%04X)%n",
+                                i, sjisText.charAt(i), (int) sjisText.charAt(i),
+                                ms932Text.charAt(i), (int) ms932Text.charAt(i));
+                    }
+                }
+            }
+        } catch (CharacterCodingException e) {
+            System.err.println("デコードに失敗しました: " + e.getMessage());
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        // 波ダッシュを含む文字列の変換テスト
+        var testText = "株式会社\u301Cテスト\u2460\u2461\u2462\u2160\u2161\u2162";
+        System.out.println("元の文字列: " + testText);
+
+        // MS932 へのエンコード（丸数字・ローマ数字は変換可能）
+        System.out.println("\\n=== MS932 エンコード ===");
+        var ms932Result = encode(testText, Charset.forName("MS932"));
+        System.out.println("バイト数: " + ms932Result.data().length);
+        if (ms932Result.hasWarnings()) {
+            ms932Result.warnings().forEach(w -> System.out.println("  警告: " + w));
+        } else {
+            System.out.println("  変換不能文字なし");
+        }
+
+        // Shift_JIS へのエンコード（丸数字・ローマ数字は変換不能）
+        System.out.println("\\n=== Shift_JIS エンコード ===");
+        var sjisResult = encode(testText, Charset.forName("Shift_JIS"));
+        System.out.println("バイト数: " + sjisResult.data().length);
+        if (sjisResult.hasWarnings()) {
+            sjisResult.warnings().forEach(w -> System.out.println("  警告: " + w));
+        } else {
+            System.out.println("  変換不能文字なし");
+        }
+
+        // 波ダッシュのバイト列比較
+        System.out.println("\\n=== 波ダッシュ（0x8160）のデコード比較 ===");
+        var waveDashBytes = new byte[]{(byte) 0x81, (byte) 0x60};
+        compareShiftJisAndMs932(waveDashBytes);
+
+        // UTF-8 BOM 付き出力の例
+        System.out.println("\\n=== UTF-8 BOM 付き CSV 出力例 ===");
+        var csvContent = "名前,金額\\n田中,10000\\n鈴木,20000";
+        var bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+        var csvBytes = csvContent.getBytes(StandardCharsets.UTF_8);
+        var withBom = new byte[bom.length + csvBytes.length];
+        System.arraycopy(bom, 0, withBom, 0, bom.length);
+        System.arraycopy(csvBytes, 0, withBom, bom.length, csvBytes.length);
+        System.out.println("BOM なし: " + csvBytes.length + " bytes");
+        System.out.println("BOM 付き: " + withBom.length + " bytes");
+    }
+}`,
+  },
 ]
