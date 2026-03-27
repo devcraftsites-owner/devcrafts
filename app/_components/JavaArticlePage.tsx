@@ -8,6 +8,7 @@ import {
 } from "../_data/java"
 import { getBooksByCategory } from "../_data/java/books"
 import { getToolBySlug, getToolHref } from "../_data/tools"
+import AdSlot from "./AdSlot"
 import { BookCardList } from "./BookCard"
 import { CopyButton } from "./CopyButton"
 import { VersionDiffBlock } from "./VersionDiffBlock"
@@ -121,7 +122,7 @@ export function JavaArticlePage({ article }: JavaArticlePageProps) {
               </div>
             ) : null}
 
-            <div className="ad-seat ad-seat--inline" />
+            <AdSlot placement="java" format="text" className="ad-seat ad-seat--inline" />
 
             {(article.versionCoverage.java8Code || article.versionCoverage.java17Code || article.versionCoverage.java21Code) ? (
               <div className="article-section">
@@ -232,7 +233,7 @@ export function JavaArticlePage({ article }: JavaArticlePageProps) {
             </div>
           </section>
 
-          <div className="ad-seat sticky-ad" />
+          <AdSlot placement="java" format="banner" className="ad-seat sticky-ad" />
         </aside>
       </div>
     </div>

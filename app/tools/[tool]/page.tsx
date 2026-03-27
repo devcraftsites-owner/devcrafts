@@ -13,6 +13,7 @@ import { UnitConverterTool } from "../_components/UnitConverterTool"
 import { Base64Tool } from "../_components/Base64Tool"
 import { JsonFormatterTool } from "../_components/JsonFormatterTool"
 import { RegexTesterTool } from "../_components/RegexTesterTool"
+import AdSlot from "../../_components/AdSlot"
 import { SqlFormatterTool } from "../_components/SqlFormatterTool"
 import { WarekiTool } from "../_components/WarekiTool"
 import { CsvJsonTool } from "../_components/CsvJsonTool"
@@ -243,7 +244,7 @@ export default async function ToolDetailPage({ params }: ToolPageProps) {
           </section>
 
           {entry.status === "ready" ? (
-            <div className="ad-seat ad-seat--inline" />
+            <AdSlot placement="tool" format="text" className="ad-seat ad-seat--inline" />
           ) : null}
 
           {entry.cautions?.length ? (
@@ -314,6 +315,8 @@ export default async function ToolDetailPage({ params }: ToolPageProps) {
               ))}
             </div>
           </section>
+
+          <AdSlot placement="tool" format="banner" className="ad-seat sticky-ad" />
         </aside>
       </section>
     </div>

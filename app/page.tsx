@@ -8,6 +8,7 @@ import {
   getJavaCategoryHref,
 } from "./_data/java"
 import { PRIORITY_TOOLS, getToolBySlug, getToolHref } from "./_data/tools"
+import AdSlot from "./_components/AdSlot"
 
 export const metadata: Metadata = {
   title: "Java 実務レシピ & ブラウザ完結ツール — Java 8/17/21 対応",
@@ -135,7 +136,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="ad-seat sticky-ad" />
+          <AdSlot placement="top" format="banner" className="ad-seat sticky-ad" />
         </aside>
       </section>
 

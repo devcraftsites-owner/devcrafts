@@ -34,12 +34,12 @@ export const JAVA_CATEGORIES: JavaCategory[] = [
   {
     slug: "fileio",
     name: "ファイルI/O",
-    articleCount: 8,
-    summary: "CSV、properties、NIO、JSON、XML など業務で触れる入出力をまとめる。",
+    articleCount: 11,
+    summary: "CSV、properties、NIO、JSON、XML、全銀フォーマットなど業務で触れる入出力をまとめる。",
     priority: "high",
     purpose: "ファイル読込や出力を例外処理込みで安全に扱えるようにする。",
-    audience: "CSV、設定ファイル、帳票連携を扱う開発者。",
-    featuredTopics: ["CSV", "Properties", "NIO", "JSON", "XML"],
+    audience: "CSV、設定ファイル、帳票連携、金融系データ連携を扱う開発者。",
+    featuredTopics: ["CSV", "Properties", "NIO", "JSON", "XML", "全銀"],
   },
   {
     slug: "network",
