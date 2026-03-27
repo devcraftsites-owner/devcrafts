@@ -283,7 +283,7 @@ public class CsvImportJob {
   versionCoverage: {
     java8: "Properties の load(InputStream) は ISO 8859-1 前提。UTF-8 で読む場合は InputStreamReader を挟む。",
     java17: "NIO の Files.newBufferedReader で Charset を明示的に渡せるため文字コードの扱いが簡潔になる。",
-    java21: "record で設定値のまとまり（DB接続情報等）を型安全に表現できる。",
+    java21: "record DbConfig(String url, String user, int maxPool) のように設定値を型安全に表現し、JobContext に入れる値の型を明確にできる。",
     java8Code: `// Java 8: InputStreamReader で UTF-8 を明示
 Properties props = new Properties();
 FileInputStream fis = new FileInputStream("batch.properties");

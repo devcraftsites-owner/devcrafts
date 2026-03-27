@@ -48,7 +48,7 @@ export function JavaArticlePage({ article }: JavaArticlePageProps) {
 
           <section className="article-card article-body">
             <div className="article-section">
-              <h2 className="section-title">Lead</h2>
+              <h2 className="section-title">概要</h2>
               <p className="section-copy">{article.lead}</p>
             </div>
 
@@ -203,11 +203,11 @@ export function JavaArticlePage({ article }: JavaArticlePageProps) {
             <div className="section-caption">Article Support</div>
             <div className="compact-stack">
               <div className="tree-item">
-                <strong>TOC</strong>
-                <small>Lead / 使いどころ / コード例 / version / 比較 / FAQ</small>
+                <strong>目次</strong>
+                <small>概要 / 使いどころ / コード例 / バージョン差分 / 比較 / FAQ</small>
               </div>
               <div className="tree-item">
-                <strong>{article.toolSlug ? "Related Tool" : "Related Theme"}</strong>
+                <strong>{article.toolSlug ? "関連ツール" : "関連テーマ"}</strong>
                 {relatedTool ? (
                   <Link href={getToolHref(relatedTool.slug)} className="mini-link mini-link--inline">
                     <strong>{relatedTool.name}</strong>

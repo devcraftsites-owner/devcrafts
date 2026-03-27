@@ -204,7 +204,7 @@ class CalculatorTest {
   relatedArticleSlugs: ["junit5-basics", "assertj-fluent-assertions"],
   versionCoverage: {
     java8: "Mockito 3.x 以降は Java 8 で動作する。ラムダで Answer を書けるが、record が使えないためテストデータの生成が冗長になる。",
-    java17: "record で User などの値オブジェクトを定義すると、テストデータの準備が簡潔になる。Mockito 5.x は Java 17 以上を推奨しており、final クラスのモック化もデフォルトで有効。",
+    java17: "record で User などの値オブジェクトを定義すると、テストデータの準備が簡潔になる。Mockito 5.x は Java 11 以上が必須で、Java 17 環境で広く利用されている。final クラスのモック化もデフォルトで有効。",
     java21: "record パターンで when の戻り値から値を分解できる。Mockito 5.x は Java 21 と互換性があり、ScopedValue を使ったコンテキスト注入のテストにも対応しやすい。",
     java8Code: `// Java 8: 通常クラスで User を定義してモック設定
 class User {
@@ -826,7 +826,7 @@ class UserRepositoryTest {
   versionCoverage: {
     java8: "Builder パターンはコンストラクタやメソッドチェーンで実装する。テストデータの記述が冗長になりがち。",
     java17: "record でテストデータを不変に定義し、Builder が record を返す設計が自然に書ける。",
-    java21: "record パターンでテスト結果の検証時に分解代入でフィールドを取り出せる。",
+    java21: "record TestResult(int code, String message) の検証で switch (result) { case TestResult(var c, var m) -> ... } のように分解代入でき、フィールド単位の検証コードが簡潔になる。",
     java8Code: `// Java 8: 通常クラスの Builder
 public class OrderBuilder {
     private String customerName = "テスト顧客";

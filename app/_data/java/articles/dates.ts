@@ -552,7 +552,7 @@ public class HolidayChecker {
   versionCoverage: {
     java8: "Date.from() / Date.toInstant() による変換は Java 8 から可能。sql.Date.toLocalDate() も Java 8 で追加されたメソッド。",
     java17: "変換ロジック自体は Java 8 と同じ。var 宣言で型推論を使えるため記述が若干簡潔になる。",
-    java21: "変換パターンに変化はない。record で変換結果をまとめると可読性が向上する。",
+    java21: "変換パターンに変化はない。record ConversionResult(LocalDate date, String formatted) のように変換結果を型で表現すると、メソッド戻り値に複数値をまとめやすい。",
     java8Code: `// Java 8: 型を明示して変換
 Date utilDate = new Date();
 LocalDate fromUtil = utilDate.toInstant()

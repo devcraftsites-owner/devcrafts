@@ -58,7 +58,7 @@ String info = switch (type) {
       { name: "Google Guice（@Singleton）", whenToUse: "軽量な DI コンテナで Singleton スコープを宣言的に管理したいとき。", tradeoff: "Guice の導入自体が必要になる。小規模プロジェクトではオーバースペックになりやすい。" },
     ],
     faq: [
-      { question: "Enum Singleton と Holder パターンのどちらを使うべきですか。", answer: "特別な理由がなければ Enum Singleton が最も安全です。シリアライズ・リフレクション攻撃にも耐性があります。ただし継承が必要な場合は Holder パターンを選んでください。" },
+      { question: "Enum Singleton と Holder パターンのどちらを使うべきですか。", answer: "Effective Java（Item 3）でも推奨されている通り、一般に Enum Singleton が最も安全とされています。シリアライズ・リフレクション攻撃にも耐性があります。ただし継承が必要な場合は Holder パターンを選んでください。" },
       { question: "Singleton はテストしにくいと聞きますが対策はありますか。", answer: "Singleton 自体にインターフェースを切り、テスト時はモック実装に差し替える方法が一般的です。DI コンテナを使えばフレームワーク側で切り替えられます。" },
       { question: "Spring の Bean はデフォルトで Singleton ですが、自前の Singleton は不要ですか。", answer: "Spring 管理下のクラスなら @Component で十分です。ただし、DI コンテナ外で動くユーティリティやライブラリ層では、自前の Singleton が依然有用です。" },
     ],
