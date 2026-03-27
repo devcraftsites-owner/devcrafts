@@ -1,73 +1,104 @@
-# java-samples
+# Java サンプルコード
 
-[java-recipes.pages.dev](https://java-recipes.pages.dev) に掲載しているサンプルコードの JUnit テストを収録しています。
+[dev-craft.dev](https://dev-craft.dev/java/) に掲載している Java 記事のサンプルコードです。
+Java 8 / 17 / 21 の 3 バージョンで同じテーマを実装し、バージョンごとの書き方の違いを確認できます。
 
-- **サイト**: [java-recipes.pages.dev](https://java-recipes.pages.dev)
-- **Next.js プロジェクト**: [GitHub リポジトリ](https://github.com/lylgamin/java-recipes)
+すべてのサンプルは **外部ライブラリ不要**（Pure Java 標準 API のみ）で動作します。
+
+- **サイト**: [dev-craft.dev/java/](https://dev-craft.dev/java/)
 
 ## ディレクトリ構成
 
 ```
-java-samples/
+examples/java/
 ├── pom.xml          ← 親 POM（マルチモジュール）
-├── java8/           ← Java 8 対応サンプルのテスト（source/target = 8）
-│   └── src/
-│       ├── main/java/
-│       └── test/java/
-├── java17/          ← Java 17 対応サンプルのテスト（source/target = 17）
-│   └── src/
-│       ├── main/java/
-│       └── test/java/
-└── java21/          ← Java 21 対応サンプルのテスト（source/target = 21）
-    └── src/
-        ├── main/java/
-        └── test/java/
+├── java8/           ← Java 8 対応サンプル（source/target = 8）
+│   └── src/main/java/   … 113 ファイル
+├── java17/          ← Java 17 対応サンプル（source/target = 17）
+│   └── src/main/java/   … 113 ファイル
+└── java21/          ← Java 21 対応サンプル（source/target = 21）
+    └── src/main/java/   … 113 ファイル
 ```
 
-## テストの方針
+各バージョンのディレクトリには同じファイル名のサンプルが入っています。
+記事ページの「Version Coverage」タブで、バージョン間の記述の違いを比較できます。
 
-- **フレームワーク**: JUnit 4
-- **観点**: ホワイトボックステスト（コード内部の分岐・ロジックを把握した上でテストケースを設計）
-- **境界値**: 最小値・最大値・境界の前後を必ずテストケースに含める
-- **コメント**: 各テストメソッドに「何を確認するテストか」を日本語コメントで記載
+## サンプル一覧（カテゴリ別）
 
-## コンパイル・テスト実行
+### 日付・時刻
 
-> **重要**: Maven は1つの JDK で動作します。Java 17/21 固有の API 互換性を確認するには、
-> それぞれの JDK に切り替えて実行する必要があります。必ず3回実行してください。
+BusinessDaySample / DateConversionSample / DateFormatSample / DateParserSample / DateProviderSample / HolidayCalcSample / HolidayCheckSample / JapaneseEraConversionSample / TimeZoneSample
+
+### 文字列・テキスト処理
+
+CsvReadWriteSample / FixedLengthSample / HalfKanaSample / NullSafeStringSample / NumberFormatSample / PaddingTrimSample / RegexSample / ValidationSample
+
+### コレクション・Stream
+
+CollectionBasicSample / SortGroupingSample / StreamApiSample / StreamFunctionSample / FunctionCompositionSample / FunctionInterfaceSample / FunctionalInterfaceSample
+
+### ファイル・I/O
+
+FileIoSample / NioFileSample / JsonSample / XmlSample / YamlSample / PropertiesSample / ZipGzipSample
+
+### ネットワーク・HTTP
+
+HttpClientSample / HttpURLConnectionSample / HttpSocketSample / FtpClientSample / MailSendSample / SmtpSocketSample / TcpSocketSample / UdpSocketSample / MinimalHttpServerSample / PostRequestServerSample / TodoHttpServerSample
+
+### データベース・SQL
+
+JdbcBasicSample / PreparedStatementSample / TransactionSample / DbAtomicCounterSample
+
+### 並行処理・スレッド
+
+ThreadBasicSample / ThreadLocalSample / ExecutorServiceSample / SynchronizedSample / ReentrantLockSample / ConditionLockSample / AtomicCounterSample / VolatileSample / DeadlockSample
+
+### セキュリティ・暗号
+
+AesEncryptionSample / Base64EncodingSample / PasswordHashingSample / DeserializationSecuritySample
+
+### シリアライズ
+
+SerializationBasicSample / ExternalizableSample / TransientSerialVersionSample / RecordSerializeSample / EnumSerializeSample
+
+### enum・record・sealed
+
+EnumBasicSample / EnumAdvancedSample / EnumFinancialSample / EnumSwitchStreamSample / RecordBasicSample / RecordVsClassVsEnumSample / SealedRecordSample
+
+### デザインパターン（GoF）
+
+AbstractFactoryPatternSample / AdapterPatternSample / BridgePatternSample / BuilderPatternSample / ChainOfResponsibilitySample / CommandPatternSample / CompositePatternSample / DecoratorPatternSample / FacadePatternSample / FactoryMethodSample / FlyweightPatternSample / InterpreterPatternSample / IteratorPatternSample / MediatorPatternSample / MementoPatternSample / ObserverPatternSample / PrototypePatternSample / ProxyPatternSample / SingletonPatternSample / StatePatternSample / StrategyPatternSample / TemplateMethodSample / VisitorPatternSample
+
+### 設計原則
+
+SolidPrinciplesSample / InterfaceVsAbstractSample / BusinessRuleValidationSample / CopyPatternSample / CopyPatternSampleAdv / CopyPitfallSample
+
+### JVM・パフォーマンス
+
+GcBasicSample / GcEfficiencySample / JvmOptionsSample / MemoryUsageSample / OutOfMemorySample / PerformanceSample
+
+### その他
+
+CustomAnnotationSample / ExceptionChainSample / ExternalProcessSample / LoggingSample / ReflectionBasicSample / TaxCalculationSample / JUnit5BasicSample
+
+## ビルドと実行
+
+Maven マルチモジュール構成です。バージョンごとに JDK を切り替えて実行してください。
 
 ```bash
-JAVA_CANDIDATES=/usr/local/sdkman/candidates/java
+# Java 17 でテスト実行（推奨）
+mvn test -pl java17
 
 # Java 8 でテスト実行
-JAVA_HOME=${JAVA_CANDIDATES}/8.0.402-tem mvn test -pl java8 -f pom.xml
-
-# Java 17 でテスト実行
-JAVA_HOME=${JAVA_CANDIDATES}/17.0.10-tem mvn test -pl java17 -f pom.xml
+mvn test -pl java8
 
 # Java 21 でテスト実行
-JAVA_HOME=${JAVA_CANDIDATES}/21.0.2-tem mvn test -pl java21 -f pom.xml
+mvn test -pl java21
+
+# 全バージョン一括
+mvn test
 ```
 
-## サンプル対応表
+## ライセンス
 
-| ID | サイトページ | テストクラス（予定） |
-|:--|:--|:--|
-| D-01 | [日付変換](https://java-recipes.pages.dev/dates/d01/) | `dates.D01DateConversionTest` |
-| D-02 | [日付フォーマット](https://java-recipes.pages.dev/dates/d02/) | `dates.D02DateFormatTest` |
-| D-03 | [消費税計算](https://java-recipes.pages.dev/dates/d03/) | `dates.D03TaxCalcTest` |
-| D-04 | [祝日判定](https://java-recipes.pages.dev/dates/d04/) | `dates.D04HolidayTest` |
-| D-05 | [営業日計算](https://java-recipes.pages.dev/dates/d05/) | `dates.D05BusinessDayTest` |
-| D-06 | [元号変換](https://java-recipes.pages.dev/dates/d06/) | `dates.D06JapaneseEraTest` |
-| D-07 | [タイムゾーン処理](https://java-recipes.pages.dev/dates/d07/) | `dates.D07TimeZoneTest` |
-| S-01 | [null安全な文字列操作](https://java-recipes.pages.dev/strings/s01/) | `strings.S01NullSafeStringTest` |
-| S-02 | [パディング・トリム](https://java-recipes.pages.dev/strings/s02/) | `strings.S02PaddingTest` |
-| S-03 | [カンマ区切り・数値フォーマット](https://java-recipes.pages.dev/strings/s03/) | `strings.S03NumberFormatTest` |
-| S-04 | [正規表現](https://java-recipes.pages.dev/strings/s04/) | `strings.S04RegexTest` |
-| C-01 | [List / Map / Set 基本操作](https://java-recipes.pages.dev/collections/c01/) | `collections.C01CollectionTest` |
-| C-02 | [Stream API](https://java-recipes.pages.dev/collections/c02/) | `collections.C02StreamTest` |
-| C-03 | [ソート・グルーピング](https://java-recipes.pages.dev/collections/c03/) | `collections.C03SortGroupTest` |
-| F-01 | [CSVの読み書き](https://java-recipes.pages.dev/fileio/f01/) | `fileio.F01CsvTest` |
-| F-02 | [.propertiesファイル](https://java-recipes.pages.dev/fileio/f02/) | `fileio.F02PropertiesTest` |
-| F-03 | [ファイル操作](https://java-recipes.pages.dev/fileio/f03/) | `fileio.F03NioFileTest` |
-| N-01 | [HttpClient REST呼び出し](https://java-recipes.pages.dev/network/n01/) | `network.N01HttpClientTest` |
+MIT License

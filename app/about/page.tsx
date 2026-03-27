@@ -1,3 +1,11 @@
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "dev-craft について — 運営方針と対象読者",
+  description: "dev-craft は Java 実務レシピとブラウザ完結ツールを提供する開発者向けサイトです。現場で使えて、必要ならその先の理解にもつながる情報を積み重ねていく運営方針と、新人から中堅の開発者を主な対象とする読者層について説明します。",
+  alternates: { canonical: "./" },
+}
+
 const sections = [
   {
     title: "このサイトを作っている理由",
@@ -26,36 +34,16 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="info-page">
-        <article className="panel info-page__main">
-          <div className="info-page__sections">
-            {sections.map((section) => (
-              <section key={section.title} className="info-page__section">
-                <h2 className="section-title">{section.title}</h2>
-                <p className="section-copy">{section.body}</p>
-              </section>
-            ))}
-          </div>
-        </article>
-
-        <aside className="panel info-page__side">
-          <p className="section-caption">Site Outline</p>
-          <div className="compact-stack">
-            <div className="tree-item">
-              <strong>Java</strong>
-              <small>実務で詰まりやすい処理を、日本語で引ける主軸コンテンツ。</small>
-            </div>
-            <div className="tree-item">
-              <strong>Tools</strong>
-              <small>ブラウザ完結で試せる補助線。記事と相互に行き来できる構成を目指す。</small>
-            </div>
-            <div className="tree-item">
-              <strong>Contact</strong>
-              <small>誤記報告やお問い合わせは Google Form から受け付けます。</small>
-            </div>
-          </div>
-        </aside>
-      </section>
+      <article className="panel">
+        <div className="info-page__sections">
+          {sections.map((section) => (
+            <section key={section.title} className="info-page__section">
+              <h2 className="section-title">{section.title}</h2>
+              <p className="section-copy">{section.body}</p>
+            </section>
+          ))}
+        </div>
+      </article>
     </div>
   )
 }

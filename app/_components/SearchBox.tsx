@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo, useState } from "react"
 
 import { getSearchSuggestions } from "../_data/search"
@@ -31,13 +32,13 @@ export function SearchBox() {
       {focused && suggestions.length > 0 ? (
         <div className="search-box__results" role="listbox" aria-label="Search suggestions">
           {suggestions.map((entry) => (
-            <a key={`${entry.type}-${entry.label}`} href={entry.href} className="search-box__result">
+            <Link key={`${entry.type}-${entry.label}-${entry.href}`} href={entry.href} className="search-box__result">
               <span className={`search-box__type search-box__type--${entry.type}`}>{labels[entry.type]}</span>
               <span className="search-box__label">
                 <span>{entry.label}</span>
                 {entry.tryAvailable ? <span className="search-box__try">Try</span> : null}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       ) : null}

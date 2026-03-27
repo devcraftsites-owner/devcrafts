@@ -1,17 +1,25 @@
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "お問い合わせ — 誤記報告・ご要望・広告提携のご連絡窓口",
+  description: "dev-craft への誤記報告、一般的なお問い合わせ、広告・提携に関するご相談を Google Form で受け付けています。メールアドレスは任意で、返信が不要な場合は匿名でもご連絡いただけます。",
+  alternates: { canonical: "./" },
+}
+
 const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSe9ncTSWxGNkjkdsaq64Z77ka2aKTGYsQ6ICjhpSvo2RAv_gw/viewform"
 
 const sections = [
   {
     title: "受け付ける内容",
-    body: "誤記のご連絡、一般的なお問い合わせ、広告・提携に関するお問い合わせ、その他のご連絡を受け付けます。",
+    body: "誤記のご連絡、一般的なお問い合わせ、広告・提携に関するご相談、その他のご連絡を受け付けています。",
   },
   {
     title: "返信方針",
-    body: "メールアドレスは任意です。返信を希望する場合はメールアドレスを入力してください。未入力の場合は返信できません。また、内容によっては返信を行わない場合があります。",
+    body: "メールアドレスは任意です。返信をご希望の方はメールアドレスをご入力ください。未入力の場合は返信いたしかねます。また、内容によっては返信を控えさせていただくことがあります。",
   },
   {
     title: "フォームに含まれる項目",
-    body: "問い合わせ種別、お名前、問い合わせ内容、メールアドレス、対象ページ URL、プライバシーポリシー同意を受け付けます。誤記報告の場合は対象ページ URL の記載を推奨します。",
+    body: "問い合わせ種別、お名前、問い合わせ内容、メールアドレス、対象ページ URL、プライバシーポリシーへの同意確認をお伺いしています。誤記報告の際は対象ページ URL の記載を推奨します。",
   },
 ]
 
@@ -33,36 +41,16 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="info-page">
-        <article className="panel info-page__main">
-          <div className="info-page__sections">
-            {sections.map((section) => (
-              <section key={section.title} className="info-page__section">
-                <h2 className="section-title">{section.title}</h2>
-                <p className="section-copy">{section.body}</p>
-              </section>
-            ))}
-          </div>
-        </article>
-
-        <aside className="panel info-page__side">
-          <p className="section-caption">Form Summary</p>
-          <div className="compact-stack">
-            <div className="tree-item">
-              <strong>Main Form</strong>
-              <small>Google Form を正式な問い合わせ窓口として利用します。</small>
-            </div>
-            <div className="tree-item">
-              <strong>Reply</strong>
-              <small>返信希望時はメールアドレス入力推奨。未入力では返信不可。</small>
-            </div>
-            <div className="tree-item">
-              <strong>Privacy</strong>
-              <small>送信前に Privacy ページの確認と同意が必要です。</small>
-            </div>
-          </div>
-        </aside>
-      </section>
+      <article className="panel">
+        <div className="info-page__sections">
+          {sections.map((section) => (
+            <section key={section.title} className="info-page__section">
+              <h2 className="section-title">{section.title}</h2>
+              <p className="section-copy">{section.body}</p>
+            </section>
+          ))}
+        </div>
+      </article>
     </div>
   )
 }

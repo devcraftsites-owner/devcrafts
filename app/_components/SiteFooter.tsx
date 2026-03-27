@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 export function SiteFooter() {
   return (
     <footer className="site-shell site-footer">
@@ -7,14 +9,12 @@ export function SiteFooter() {
           Java 実務レシピを主軸に、検索・比較・試用まで同一導線で整理する。
         </p>
       </div>
-      <div className="footer-links">
-        <a href="/about">About</a>
-        <a href="/java/standard-preview">Article</a>
-        <a href="/java/tool-enhanced-preview">Try Panel</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/contact">Contact</a>
-        <a href="/terms">Terms</a>
-      </div>
+      <nav className="footer-links" aria-label="Footer">
+        <Link href="/about">About</Link>
+        <Link href="/privacy">Privacy</Link>
+        <Link href="/contact">Contact</Link>
+        <Link href="/terms">Terms</Link>
+      </nav>
     </footer>
   )
 }

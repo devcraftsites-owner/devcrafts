@@ -2,9 +2,6 @@
 const nextConfig = {
   output: 'export',
   trailingSlash: true,
-  watchOptions: {
-    pollIntervalMs: 300,
-  },
   images: {
     unoptimized: true,
   },

@@ -19,6 +19,7 @@ function getResolvedTheme(): ThemeMode {
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme
+  document.documentElement.style.colorScheme = theme
   window.localStorage.setItem("theme-mode", theme)
 }
 
@@ -36,7 +37,13 @@ export function ThemeToggle() {
   }
 
   return (
-    <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle color theme">
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label="Toggle color theme"
+      aria-pressed={theme === "dark"}
+    >
       <span className="theme-toggle__dot" />
       <span suppressHydrationWarning>{theme === "light" ? "Light" : "Dark"}</span>
     </button>

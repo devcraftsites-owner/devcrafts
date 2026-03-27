@@ -1,14 +1,26 @@
-import { JAVA_ARTICLE_PREVIEWS, JAVA_CATEGORIES, PRIORITY_JAVA_TOPICS } from "./_data/java"
-import { PRIORITY_TOOLS } from "./_data/tools"
+import type { Metadata } from "next"
+import Link from "next/link"
+import {
+  JAVA_ARTICLE_PREVIEWS,
+  JAVA_CATEGORIES,
+  PRIORITY_JAVA_TOPICS,
+  getJavaArticleHref,
+  getJavaCategoryHref,
+} from "./_data/java"
+import { PRIORITY_TOOLS, getToolBySlug, getToolHref } from "./_data/tools"
+
+export const metadata: Metadata = {
+  title: "Java 実務レシピ & ブラウザ完結ツール — Java 8/17/21 対応",
+  description: "Java 8/17/21 対応のコード例とブラウザ完結の計算・変換ツールを、実務で使える形に整理した開発者向けサイトです。営業日計算、祝日判定、和暦変換、消費税計算など、業務でよく使うテーマを優先的にカバーしています。",
+  alternates: { canonical: "./" },
+}
 
 export default function HomePage() {
   const featuredCategories = JAVA_CATEGORIES.filter((category) => category.priority === "high")
   const featuredArticles = JAVA_ARTICLE_PREVIEWS.slice(0, 5)
   const toolEnhancedArticles = JAVA_ARTICLE_PREVIEWS.filter((article) => article.toolSlug).slice(0, 4)
-  const spotlightArticles = [
-    "現場でよく使うテーマ: 営業日・祝日処理",
-    "まず押さえたい実務処理: 和暦・タイムゾーン処理",
-  ]
+  const publishedArticleCount = JAVA_ARTICLE_PREVIEWS.length
+  const toolCount = PRIORITY_TOOLS.length
 
   return (
     <div className="docs-page">
@@ -26,31 +38,34 @@ export default function HomePage() {
           </p>
         </div>
         <div className="hero-stats">
-          {spotlightArticles.map((item) => (
-            <div key={item} className="stat-card">
-              <span className="stat-label">Spotlight</span>
-              <strong>{item.split(": ")[0]}</strong>
-              <small>{item.split(": ")[1]}</small>
-            </div>
-          ))}
+          <Link href="/java" className="stat-card">
+            <span className="stat-label">Java Recipes</span>
+            <strong>{publishedArticleCount} articles</strong>
+            <small>Java 8 / 17 / 21 対応の実務レシピ</small>
+          </Link>
+          <Link href="/tools" className="stat-card">
+            <span className="stat-label">Browser Tools</span>
+            <strong>{toolCount}+ tools</strong>
+            <small>ブラウザ完結・サーバー送信なし</small>
+          </Link>
         </div>
       </section>
 
       <section className="trust-strip panel">
         <div className="trust-strip__label">Trust & Contact</div>
         <div className="trust-strip__links">
-          <a href="/about" className="trust-link">
+          <Link href="/about" className="trust-link">
             <strong>About</strong>
             <small>このサイトを作っている理由と運営方針</small>
-          </a>
-          <a href="/privacy" className="trust-link">
+          </Link>
+          <Link href="/privacy" className="trust-link">
             <strong>Privacy</strong>
             <small>広告、Cookie、Analytics、問い合わせ情報の取扱い</small>
-          </a>
-          <a href="/contact" className="trust-link">
+          </Link>
+          <Link href="/contact" className="trust-link">
             <strong>Contact</strong>
             <small>誤記報告、一般問い合わせ、広告・提携相談</small>
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -59,32 +74,32 @@ export default function HomePage() {
           <div className="section-caption">Category Tree</div>
           <div className="tree-list">
             {featuredCategories.map((category) => (
-              <a key={category.slug} href="/java" className="tree-item">
+              <Link key={category.slug} href={getJavaCategoryHref(category.slug)} className="tree-item">
                 <strong>{category.name}</strong>
                 <small>{category.summary}</small>
-              </a>
+              </Link>
             ))}
           </div>
         </aside>
 
         <section className="panel">
-          <div className="section-header">
+          <div className="section-header section-header--feature">
             <div>
               <p className="eyebrow">Focus</p>
-              <h2 className="section-title">検索から一覧、記事、Try Panel までつなぐ</h2>
+              <h2 className="section-title section-title--feature">実務で使える Java レシピ</h2>
             </div>
-            <p className="meta-copy">Sample B を母体に、A のテーマ切替と C の限定埋め込みを加える。</p>
+            <p className="meta-copy meta-copy--feature">記事を読んで理解し、ブラウザツールで検算。関連テーマへも辿れます。</p>
           </div>
-          <div className="filter-row">
+          <div className="filter-row filter-row--spacious">
             <span className="filter-chip">Java 8 / 17 / 21</span>
             <span className="filter-chip">Date / Stream / DB / HTTP</span>
             <span className="filter-chip">Try Panel enabled</span>
           </div>
-          <div className="dense-list">
-            {featuredArticles.map((article, index) => (
+          <div className="dense-list dense-list--spacious">
+            {featuredArticles.map((article) => (
               <div key={article.slug}>
-                <a
-                  href={article.toolSlug ? "/java/tool-enhanced-preview" : "/java/standard-preview"}
+                <Link
+                  href={getJavaArticleHref(article)}
                   className="dense-list__item"
                 >
                   <div className="dense-list__meta">
@@ -98,22 +113,7 @@ export default function HomePage() {
                   <div className="dense-list__badge">
                     {article.toolSlug ? <span className="badge">Try</span> : <span className="badge badge--muted">Read</span>}
                   </div>
-                </a>
-                {index === 2 ? (
-                  <div className="dense-list__item dense-list__item--pr">
-                    <div className="dense-list__meta">
-                      <span>Sponsored</span>
-                      <span>PR</span>
-                    </div>
-                    <div className="dense-list__body">
-                      <strong>PR: 実務に強い Java 学習パートナー</strong>
-                      <p className="card-copy">記事一覧と同じ流れの中で読めるスポンサー枠。広告であることは明確に表示する。</p>
-                    </div>
-                    <div className="dense-list__badge">
-                      <span className="badge badge--pr">PR</span>
-                    </div>
-                  </div>
-                ) : null}
+                </Link>
               </div>
             ))}
           </div>
@@ -123,16 +123,19 @@ export default function HomePage() {
           <div className="section-caption">Try-enabled Topics</div>
           <div className="compact-stack">
             {toolEnhancedArticles.map((article) => (
-              <a key={article.slug} href="/java/tool-enhanced-preview" className="mini-link">
-                <strong>{article.title}</strong>
-                <small>{article.toolSlug}</small>
-              </a>
+              <div key={article.slug} className="mini-link">
+                <Link href={getJavaArticleHref(article)}>
+                  <strong>{article.title}</strong>
+                </Link>
+                {article.toolSlug ? (
+                  <Link href={getToolHref(article.toolSlug)}>
+                    <small>Try: {getToolBySlug(article.toolSlug)?.name ?? article.toolSlug}</small>
+                  </Link>
+                ) : null}
+              </div>
             ))}
           </div>
-          <div className="ad-seat sticky-ad">
-            <strong>Sticky Ad Seat</strong>
-            <p className="meta-copy">PC の右レールのみ追従。本文と一覧を邪魔しない。</p>
-          </div>
+          <div className="ad-seat sticky-ad" />
         </aside>
       </section>
 
@@ -140,17 +143,17 @@ export default function HomePage() {
         <div className="section-header">
           <div>
             <p className="eyebrow">Priority Themes</p>
-            <h2 className="section-title">ツールと自然に接続できる記事群だけを強化する</h2>
+            <h2 className="section-title">Java 記事とブラウザツールが連携するテーマ</h2>
           </div>
         </div>
         <div className="card-grid">
           {featuredCategories.map((category) => (
-            <a key={category.slug} href="/java" className="surface-card">
+            <Link key={category.slug} href={getJavaCategoryHref(category.slug)} className="surface-card">
               <span className="pill">{category.slug}</span>
               <h3 className="card-title">{category.name}</h3>
               <p className="card-copy">{category.summary}</p>
               <p className="meta-copy">{category.articleCount} articles</p>
-            </a>
+            </Link>
           ))}
         </div>
         <div className="priority-topic-row">
@@ -160,9 +163,9 @@ export default function HomePage() {
             </span>
           ))}
           {PRIORITY_TOOLS.slice(0, 2).map((tool) => (
-            <span key={tool.slug} className="filter-chip">
+            <Link key={tool.slug} href={getToolHref(tool.slug)} className="filter-chip">
               Try: {tool.name}
-            </span>
+            </Link>
           ))}
         </div>
       </section>
