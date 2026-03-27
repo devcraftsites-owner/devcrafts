@@ -6,6 +6,7 @@ import { ThemeScript } from "./_components/ThemeScript"
 import "./globals.css"
 
 const GA_ID = "G-4C08CPRE94"
+const ADSENSE_ID = "ca-pub-2250558452650078"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dev-craft.dev"),
@@ -49,6 +50,11 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body>
+        <Script
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_ID}`}
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+        />
         <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
         <Script id="gtag-init" strategy="afterInteractive">
           {`
