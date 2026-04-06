@@ -31,6 +31,10 @@ const sections = [
     title: "お問い合わせ・ソースコード",
     body: "記事の誤りや改善のご提案は、お問い合わせページからお寄せください。サイトのソースコードは GitHub で公開しています。",
   },
+  {
+    title: "運営者",
+    body: "運営者：dev-craft 管理人（Yuji Nakamura）。業務系システム開発の現場経験をもとに、このサイトを運営しています。",
+  },
 ]
 
 export default function AboutPage() {

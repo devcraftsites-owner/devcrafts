@@ -8,6 +8,7 @@ import {
   getJavaCategoryHref,
 } from "./_data/java"
 import { PRIORITY_TOOLS, getToolBySlug, getToolHref } from "./_data/tools"
+import { BLOG_ARTICLES, getBlogArticleHref } from "./_data/blog"
 import AdSlot from "./_components/AdSlot"
 
 export const metadata: Metadata = {
@@ -139,6 +140,31 @@ export default function HomePage() {
           <AdSlot placement="top" format="banner" className="ad-seat sticky-ad" />
         </aside>
       </section>
+
+      {BLOG_ARTICLES.length > 0 && (
+        <section className="panel">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">Blog</p>
+              <h2 className="section-title">実務で踏んだ落とし穴</h2>
+            </div>
+            <Link href="/blog" className="meta-copy">すべて見る →</Link>
+          </div>
+          <div className="dense-list">
+            {BLOG_ARTICLES.slice(0, 3).map((article) => (
+              <Link key={article.slug} href={getBlogArticleHref(article.slug)} className="dense-list__item">
+                <div className="dense-list__meta">
+                  <span>{article.publishedAt}</span>
+                </div>
+                <div className="dense-list__body">
+                  <strong>{article.title}</strong>
+                  <p className="card-copy">{article.description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="section-header">

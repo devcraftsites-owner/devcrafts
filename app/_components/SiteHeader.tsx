@@ -8,6 +8,7 @@ import { ThemeToggle } from "./ThemeToggle"
 const navItems = [
   { href: "/java", label: "Java" },
   { href: "/tools", label: "Tools" },
+  { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
 ]
 

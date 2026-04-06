@@ -30,17 +30,8 @@ export type AdEntry = {
 // 広告エントリ
 // A8.net からタグを取得したら html フィールドに貼り付ける
 // ---------------------------------------------------------------------------
-export const ADS: AdEntry[] = [
-  {
-    id: "cloud-xserver-01",
-    category: "cloud",
-    format: "banner",
-    placement: ["tool", "any"],
-    html: `<a href="https://px.a8.net/svt/ejp?a8mat=4AZPOT+6D7WOI+CO4+15XRUP" rel="nofollow"><img border="0" width="250" height="250" alt="" src="https://www28.a8.net/svt/bgt?aid=260327117385&wid=001&eno=01&mid=s00000001642007044000&mc=1"></a><img border="0" width="1" height="1" src="https://www16.a8.net/0.gif?a8mat=4AZPOT+6D7WOI+CO4+15XRUP" alt="">`,
-    label: "Xserver レンタルサーバー",
-    size: "250x250",
-  },
-]
+// AdSense 審査中のため一時停止
+export const ADS: AdEntry[] = []
 
 // ---------------------------------------------------------------------------
 // ヘルパー
