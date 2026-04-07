@@ -224,7 +224,7 @@ export const JAVA_CATEGORIES: JavaCategory[] = [
   {
     slug: "gc",
     name: "GC",
-    articleCount: 3,
+    articleCount: 4,
     summary: "GC の基礎、JVM オプション、計測の入口を扱う。",
     priority: "long_term",
     purpose: "GC ログと JVM オプションの理解を補助する。",

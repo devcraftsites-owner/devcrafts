@@ -298,7 +298,7 @@ public class GcEfficientCache {
       "Java 8 の -XX:+PrintGCDetails は Java 9 以降で廃止され、-Xlog:gc* に置き換わった。バージョンを跨ぐ運用ではオプションの互換性を確認すること",
       "ZGC は低レイテンシに優れるが、スループット重視の大量バッチ処理では G1GC のほうが適する場合がある。ワークロードに応じた選択が必要",
     ],
-    relatedArticleSlugs: ["gc-basics", "gc-efficiency", "performance-basics"],
+    relatedArticleSlugs: ["gc-basics", "gc-efficiency", "jvm-options-version-diff", "performance-basics"],
     versionCoverage: {
       java8: "デフォルト GC は Parallel GC。GC ログは -XX:+PrintGCDetails で出力。ManagementFactory は利用可能だが、import にパッケージ名を完全修飾で書くケースが多い。",
       java17: "デフォルト GC は G1GC。GC ログは -Xlog:gc* に統一。var と import 文の整理で ManagementFactory 周りのコードが読みやすくなる。ZGC が本番利用可能。",
@@ -397,6 +397,235 @@ public class JvmOptionsDemo {
             -XX:HeapDumpPath=/tmp/heap.hprof: ダンプ出力先
             """;
         System.out.println(options);
+    }
+}`,
+  },
+  {
+    slug: "jvm-options-version-diff",
+    title: "Java 8→17→21 JVM オプション移行ガイド：廃止・変更・新設オプション徹底比較",
+    categorySlug: "gc",
+    summary: "Java バージョンアップで変わった JVM オプションを「廃止・変更・新設」に分類し、8→17→21 の移行手順を実コード付きで整理する。",
+    version: "Java 21",
+    tags: ["JVM", "移行", "GCログ", "ZGC", "Metaspace", "UseContainerSupport", "Xlog", "廃止オプション"],
+    apiNames: ["System.getProperty", "ManagementFactory.getRuntimeMXBean", "ManagementFactory.getGarbageCollectorMXBeans"],
+    description: "Java 8→17→21 での JVM オプションの廃止・変更・新設を整理し、GCログ形式変更・デフォルトGC変遷・コンテナ対応・Metaspace 移行を実行可能コードと合わせて解説する。",
+    lead: "Java 8 で書かれた起動スクリプトをそのまま Java 17 や 21 で動かすと、認識されないオプションの警告が出たり、GC ログが出力されなくなったりすることがあります。特に `-XX:+PrintGCDetails`、`-XX:MaxPermSize` のような Java 8 時代の定番オプションは、Java 9 以降で廃止・無効化されています。バージョンアップ後に「GC ログが空だ」「起動時に Unrecognized VM option と出る」と気づいて初めて調べるケースも多いでしょう。この記事では「廃止された」「デフォルトが変わった」「新しく使えるようになった」の 3 軸でバージョン間の差異を整理します。GC ログ形式の Unified JVM Logging への移行、デフォルト GC の Parallel→G1GC→Generational ZGC への変遷、コンテナ環境での `-XX:+UseContainerSupport` の扱い、PermGen 廃止と Metaspace 設定の現在地を、実行して確認できるコード付きでまとめます。起動スクリプトの棚卸しや Java アップグレード作業のチェックリストとして使ってください。",
+    useCases: [
+      "Java 8 の起動スクリプトを Java 17/21 へ移行する際に、廃止オプションを洗い出して警告やエラーを解消する",
+      "Kubernetes や Docker 上のコンテナアプリで -XX:+UseContainerSupport が有効かどうかを確認し、ヒープサイズを適切に設定する",
+      "GC ログが出力されていない原因を調査し、-XX:+PrintGCDetails から -Xlog:gc* への書き換え手順を確認する",
+    ],
+    cautions: [
+      "-XX:MaxPermSize は Java 8 で PermGen が廃止されて以降、JVM に無視されるか起動失敗の原因になる。Java 17 以降では完全削除されたため、起動スクリプトから必ず取り除くこと",
+      "-XX:+PrintGCDetails / -XX:+PrintGCDateStamps は Java 9 で廃止。代替は -Xlog:gc*:file=gc.log:time,uptime,level,tags で、同等以上の情報が得られる",
+      "-XX:+UseContainerSupport は Java 10 からデフォルト有効で cgroup のメモリ上限を認識するが、-Xmx を明示指定するとコンテナ自動計算は無効になる。両方書いた場合は -Xmx が優先される",
+      "ZGC は Java 15 で本番対応、Java 21 で Generational ZGC に進化した。Java 8/11 環境への ZGC 設定のバックポートはできないため、移行後のバージョン確認が必須",
+    ],
+    relatedArticleSlugs: ["jvm-options", "gc-basics", "gc-efficiency"],
+    versionCoverage: {
+      java8: "デフォルト GC は Parallel GC（-XX:+UseParallelGC）。GC ログは -XX:+PrintGCDetails -XX:+PrintGCDateStamps で出力。PermGen は既に Metaspace に移行済みだが、誤って -XX:MaxPermSize を指定しているスクリプトが多い。コンテナのメモリ上限を JVM が認識しない（UseContainerSupport 未搭載）。",
+      java17: "デフォルト GC は G1GC（Java 9 から変更）。GC ログは Unified JVM Logging（-Xlog:gc*）に統一。-XX:MaxPermSize は完全削除。-XX:+UseContainerSupport は Java 10 からデフォルト有効。ZGC（-XX:+UseZGC）が実験的フラグなしで使用可能に。",
+      java21: "Generational ZGC（-XX:+UseZGC -XX:+ZGenerational）が標準搭載。G1GC も継続サポート。Virtual Thread のスタックはヒープ外で管理されるため、大量スレッド起動時の GC 負荷が従来より低い。コンテナ自動検出の精度がさらに向上。",
+      java8Code: `// Java 8 当時の起動オプション（移行時に削除・置換が必要なもの）
+// -XX:+UseParallelGC          ← Java 9 以降はデフォルトが G1GC に変更
+// -XX:+PrintGCDetails         ← Java 9 で廃止。-Xlog:gc* に書き換えること
+// -XX:+PrintGCDateStamps      ← 同上
+// -XX:PermSize=128m           ← Java 8 で既に Metaspace に移行済み。無効
+// -XX:MaxPermSize=256m        ← Java 17 以降では起動失敗の原因になる
+
+Runtime runtime = Runtime.getRuntime();
+System.out.println("Java version: " + System.getProperty("java.version"));
+System.out.println("最大ヒープ: " + (runtime.maxMemory() / (1024 * 1024)) + " MB");
+// コンテナ上では UseContainerSupport がないためホストの物理メモリ全量を参照する`,
+      java17Code: `// Java 17 推奨の起動オプション
+// -XX:+UseG1GC                           ← デフォルトだが意図を明示する場合に
+// -Xlog:gc*:file=gc.log:time,uptime,level,tags  ← PrintGCDetails の代替
+// -XX:+HeapDumpOnOutOfMemoryError
+// -XX:HeapDumpPath=/tmp/heap.hprof
+// ※ -XX:MaxPermSize, -XX:+PrintGCDetails は削除すること
+
+var runtime = Runtime.getRuntime();
+System.out.println("Java version: " + System.getProperty("java.version"));
+// UseContainerSupport（Java 10+ デフォルト有効）により
+// docker run --memory=2g などの cgroup 制限を JVM が正しく認識する
+System.out.println("最大ヒープ: " + (runtime.maxMemory() / (1024 * 1024)) + " MB");`,
+      java21Code: `// Java 21 / Generational ZGC を使う場合の起動オプション
+// -XX:+UseZGC -XX:+ZGenerational        ← 低レイテンシ要件向け
+// -Xlog:gc*:file=gc.log:time,uptime,level,tags
+// -XX:MaxRAMPercentage=75.0             ← コンテナ環境（デフォルト 25%）
+
+var version = Runtime.version();
+System.out.println("Java: " + version.feature() + "." + version.interim());
+
+// Virtual Thread は Platform Thread より GC 負荷が低い
+try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+    executor.submit(() ->
+        System.out.println("Virtual Thread 実行中（スタックはヒープ外管理）")
+    );
+}`,
+    },
+    libraryComparison: [
+      {
+        name: "標準 JVM フラグ（-Xlog / -XX）",
+        whenToUse: "GC ログの出力形式変更や GC アルゴリズム選択など、JVM レベルの動作を制御したいとき。Java 9 以降は -Xlog:gc* が統一的な窓口になる。",
+        tradeoff: "フラグの多くはバージョン間で互換性がない。Java 8 と Java 17 で同一スクリプトを使いまわすと、廃止フラグの警告や起動失敗が起きる。",
+      },
+      {
+        name: "GCViewer / GCEasy",
+        whenToUse: "GC ログファイル（-Xlog:gc* で出力）を視覚的に分析し、停止時間のピークや GC 頻度の傾向を素早く把握したいとき。",
+        tradeoff: "GCViewer はローカルツールで最新 GC フォーマットへの追従が遅れることがある。GCEasy はクラウド型のため、本番ログのアップロード前にセキュリティポリシーの確認が必要。",
+      },
+      {
+        name: "JVM Flight Recorder（JFR）",
+        whenToUse: "Java 11 以降で GC だけでなく CPU・スレッド・I/O も含めた詳細プロファイルをオーバーヘッド最小で取得したいとき。本番環境での常時有効化も実績がある。",
+        tradeoff: "Oracle JDK 8 の商用機能として存在したが、OpenJDK 8 では使えない。Java 11 以降の OpenJDK で本格的に利用可能になった。",
+      },
+    ],
+    faq: [
+      {
+        question: "-XX:+PrintGCDetails を Java 17 で使うとどうなりますか。",
+        answer: "Java 9 以降では認識されないオプションとして警告（Unrecognized VM option）が出力されます。場合によっては起動失敗の原因にもなります。代わりに -Xlog:gc*:file=gc.log:time,uptime,level,tags を使ってください。",
+      },
+      {
+        question: "コンテナ上で -Xmx を指定しないと JVM はどのようにヒープ上限を決めますか。",
+        answer: "Java 10 以降では -XX:+UseContainerSupport がデフォルト有効で、cgroup のメモリ上限（docker run --memory など）を認識します。デフォルトでは上限の 25% 相当が -Xmx の基準になります（-XX:MaxRAMPercentage=25.0）。Java 8 では UseContainerSupport がないため、ホストの物理メモリ全量を参照してしまいます。",
+      },
+      {
+        question: "Generational ZGC と Java 21 以前の ZGC の違いは何ですか。",
+        answer: "Java 21 以前の ZGC は世代別 GC を持たず全オブジェクトを同一世代として扱うシングルジェネレーション型でした。Java 21 の Generational ZGC では Young/Old 世代が導入され、短命オブジェクトをより効率的に回収できるため、同じ低レイテンシを維持しつつヒープ効率が改善しています。",
+      },
+    ],
+    codeTitle: "JvmOptionsMigrationDemo.java",
+    codeSample: `import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
+import java.util.List;
+
+/**
+ * JVM オプション移行ガイド — 実行バージョン確認と設定検証デモ
+ *
+ * 実行方法（Java 17 / 21）:
+ *   java -Xms256m -Xmx512m \\
+ *        -Xlog:gc*:file=gc.log:time,uptime,level,tags \\
+ *        -XX:+HeapDumpOnOutOfMemoryError \\
+ *        JvmOptionsMigrationDemo
+ *
+ * Java 8 で使っていた廃止オプション（使用禁止）:
+ *   -XX:+PrintGCDetails     -> 代替: -Xlog:gc*
+ *   -XX:+PrintGCDateStamps  -> 代替: -Xlog:gc*:...:time
+ *   -XX:MaxPermSize=256m    -> PermGen 廃止済み。削除すること
+ */
+public class JvmOptionsMigrationDemo {
+
+    /** 実行中の Java バージョンを取得して大まかに分類する */
+    static int detectMajorVersion() {
+        String version = System.getProperty("java.version");
+        // "1.8.0_xxx" 形式（Java 8）と "17.0.x" 形式を両対応
+        if (version.startsWith("1.")) {
+            return Integer.parseInt(version.split("\\\\.")[1]);
+        }
+        return Integer.parseInt(version.split("\\\\.")[0]);
+    }
+
+    /** JVM に渡された起動フラグを取得し、廃止フラグが含まれていれば警告する */
+    static void checkDeprecatedFlags(List<String> flags) {
+        var deprecated = List.of(
+            "-XX:+PrintGCDetails",
+            "-XX:+PrintGCDateStamps",
+            "-XX:MaxPermSize",
+            "-XX:PermSize",
+            "-XX:+UseConcMarkSweepGC"  // Java 14 で削除
+        );
+        System.out.println("\\n=== 廃止オプションチェック ===");
+        boolean found = false;
+        for (String flag : flags) {
+            for (String dep : deprecated) {
+                if (flag.contains(dep)) {
+                    System.out.println("[警告] 廃止オプション検出: " + flag);
+                    found = true;
+                }
+            }
+        }
+        if (!found) {
+            System.out.println("廃止オプションなし — OK");
+        }
+    }
+
+    /** ヒープ設定とコンテナ対応状況を表示する */
+    static void printHeapInfo() {
+        var runtime = Runtime.getRuntime();
+        long maxMb   = runtime.maxMemory()   / (1024 * 1024);
+        long totalMb = runtime.totalMemory() / (1024 * 1024);
+        long usedMb  = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+
+        System.out.println("\\n=== ヒープ情報 ===");
+        System.out.println("最大ヒープ (-Xmx)   : " + maxMb   + " MB");
+        System.out.println("現在のヒープ        : " + totalMb + " MB");
+        System.out.println("使用中              : " + usedMb  + " MB");
+        System.out.println("CPU コア数          : " + runtime.availableProcessors());
+        // Java 10+ で UseContainerSupport がデフォルト有効になり、
+        // コンテナの cgroup 上限（docker run --memory など）を JVM が認識するようになった。
+        // -Xmx を明示しない場合は MaxRAMPercentage（デフォルト 25%）が上限の基準になる。
+        System.out.println("(コンテナ実行時は cgroup 上限を反映: UseContainerSupport Java 10+)");
+    }
+
+    /** GC アルゴリズムとバージョン別の変遷を表示する */
+    static void printGcInfo() {
+        System.out.println("\\n=== GC 情報 ===");
+        for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
+            System.out.println("GC 名     : " + gc.getName());
+            System.out.println("  回数    : " + gc.getCollectionCount());
+            System.out.println("  累計時間: " + gc.getCollectionTime() + " ms");
+        }
+    }
+
+    /** バージョン別の推奨 GC オプションを表示する */
+    static void printVersionGuidance(int major) {
+        // switch 式（Java 14+）でバージョン別ガイダンスを返す
+        var guidance = switch (major) {
+            case 8  -> """
+                [Java 8] デフォルト GC: Parallel GC
+                  推奨: -XX:+UseG1GC（明示指定で G1GC に切替可）
+                  GC ログ: -XX:+PrintGCDetails -XX:+PrintGCDateStamps（Java 8 のみ有効）
+                  注意: UseContainerSupport 未対応。コンテナではヒープを明示指定すること""";
+            case 17 -> """
+                [Java 17] デフォルト GC: G1GC
+                  推奨: -Xlog:gc*:file=gc.log:time,uptime,level,tags
+                  ZGC: -XX:+UseZGC（低レイテンシ要件向け）
+                  廃止: -XX:+PrintGCDetails, -XX:MaxPermSize は削除すること""";
+            default -> """
+                [Java 21] デフォルト GC: G1GC / Generational ZGC
+                  推奨 ZGC: -XX:+UseZGC -XX:+ZGenerational
+                  GC ログ: -Xlog:gc*:file=gc.log:time,uptime,level,tags
+                  コンテナ: -XX:MaxRAMPercentage=75.0 を検討（デフォルト 25%）""";
+        };
+        System.out.println("\\n=== バージョン別ガイダンス ===");
+        System.out.println(guidance);
+    }
+
+    public static void main(String[] args) {
+        System.out.println("=== JVM オプション移行チェッカー ===");
+        System.out.println("Java version : " + System.getProperty("java.version"));
+        System.out.println("JVM vendor   : " + System.getProperty("java.vendor"));
+
+        int major = detectMajorVersion();
+        System.out.println("メジャーバージョン: " + major);
+
+        // 起動フラグに廃止オプションが含まれていないか確認
+        RuntimeMXBean runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+        checkDeprecatedFlags(runtimeMxBean.getInputArguments());
+
+        printHeapInfo();
+        printGcInfo();
+        printVersionGuidance(major);
+
+        System.out.println("\\n=== 移行チェックリスト ===");
+        System.out.println("""
+            [ ] -XX:MaxPermSize / -XX:PermSize を削除した
+            [ ] -XX:+PrintGCDetails を -Xlog:gc* に書き換えた
+            [ ] -XX:+UseConcMarkSweepGC (CMS) を削除 / G1GC に変更した
+            [ ] コンテナ環境で -XX:MaxRAMPercentage を設定した
+            [ ] GC アルゴリズムをワークロードに合わせて選定した""");
     }
 }`,
   },
