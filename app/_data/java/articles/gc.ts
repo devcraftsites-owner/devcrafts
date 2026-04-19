@@ -133,147 +133,286 @@ public class GcBasicDemo {
   },
 {
     slug: "gc-efficiency",
-    title: "Java で Full GC を防ぐメモリ設計の実践と対策パターン",
+    title: "Java Full GC の危険性と回避策 — Stop-The-World・GC チューニング・実装設計",
     categorySlug: "gc",
-    summary: "WeakReference、短命オブジェクト設計、キャッシュ戦略で Full GC を抑制する方法を整理する。",
+    summary: "Stop-The-World が業務システムに与える影響と、G1GC/ZGC チューニング・Humongous 対策・ThreadLocal リーク・メモリリーク回避パターンを整理する。",
     version: "Java 17",
-    tags: ["Full GC", "WeakReference", "SoftReference", "メモリリーク", "キャッシュ"],
-    apiNames: ["WeakHashMap", "WeakReference", "SoftReference", "Runtime.getRuntime"],
-    description: "Full GC を避けるための WeakReference 活用・短命オブジェクト設計・キャッシュ戦略を Java 標準 API で Java 8/17/21 対応で実装する方法を解説する。",
-    lead: "Full GC が発生するとアプリケーション全体が一時停止し、API のレスポンスタイムが跳ね上がったりバッチの処理時間が大幅に伸びたりします。原因の多くは、不要になったオブジェクトへの参照を保持し続ける設計にあります。キャッシュに強参照で溜め込む、コレクションをクリアせずにフィールドに持ち続ける、といったパターンは業務コードで繰り返し見かけます。この記事では、WeakReference と WeakHashMap を使った GC フレンドリーなキャッシュ、短命オブジェクト設計によるメモリ圧迫の回避、そして参照の種類（Strong / Weak / Soft / Phantom）ごとの GC 挙動の違いを整理します。どの場面でどの参照型を選ぶべきかの判断基準も示します。",
+    tags: ["Full GC", "Stop-The-World", "G1GC", "ZGC", "メモリリーク", "WeakReference", "SoftReference", "キャッシュ", "ヒープチューニング", "ThreadLocal", "Humongous"],
+    apiNames: ["WeakHashMap", "WeakReference", "SoftReference", "Runtime.getRuntime", "ManagementFactory.getGarbageCollectorMXBeans"],
+    description: "Full GC の Stop-The-World が業務システムに与える影響と、G1GC/ZGC チューニング・メモリリーク対策・ThreadLocal 解放・Humongous オブジェクト対策を Java 8/17/21 対応で解説する。",
+    lead: "Full GC が発生するとアプリケーション全体が一時停止します。この「Stop-The-World（STW）」とは、JVM がすべてのアプリケーションスレッドを強制的に止め、ヒープ全体を対象にメモリ回収を行う状態です。Parallel GC では数秒から十数秒に達することがあり、G1GC でも Old Generation が逼迫した場合は数秒のSTWが発生します。ZGC は 1 ミリ秒未満の停止を目標に設計されていますが、適切な設定なしには Full GC が発生します。\n\n業務システムへの影響は深刻です。REST API のタイムアウトが 5 秒に設定されたサービスで 8 秒の Full GC が起きれば、その間に受け付けたリクエストはすべてタイムアウトエラーで失敗します。夜間バッチが繰り返し Full GC を起こすと処理ウィンドウを超過し、翌朝の業務開始までにデータ更新が間に合わない事態になります。さらに、GC 中に積み上がったリクエストが完了後に一斉処理されると CPU とメモリが急騰して次の Full GC を誘発し、カスケード障害に発展することもあります。\n\nFull GC の主な引き金は 3 つです。① Old Generation が満杯になる（不要オブジェクトへの参照を保持し続けるメモリリーク、または長命オブジェクトの大量生成）。② Metaspace が枯渇する（ClassLoader リークや動的クラス生成の多用）。③ System.gc() が呼ばれる（RMI のデフォルト 1 時間ごとの定期呼び出しやライブラリ内部からの呼び出し）。\n\n対策は「JVM オプションによる制御」と「実装レベルの設計」の 2 軸になる。WeakReference・WeakHashMap を使った GC フレンドリーなキャッシュ設計、短命オブジェクト設計、ThreadLocal のリーク対策、G1GC の Humongous オブジェクト問題への対処など、コードレベルで実践できる手法を整理した。あわせて G1GC の MaxGCPauseMillis 設定・ZGC への移行判断・System.gc() 無効化・Metaspace 上限設定など JVM チューニングのポイントも取り上げる。",
     useCases: [
+      "API サーバーで GC ログを分析し、Full GC の頻度・STW 時間・Old Generation 使用率からメモリリークの有無を特定する",
       "マスタデータのインメモリキャッシュを WeakHashMap で構築し、メモリ不足時に自動で解放されるようにする",
-      "大量 CSV の行単位処理でオブジェクトをメソッドスコープに閉じ込め、Old Generation への昇格を防ぐ",
-      "画像サムネイルのキャッシュに SoftReference を使い、メモリが足りている間はキャッシュを保持しつつ、不足時には GC に回収させる",
+      "大量 CSV の行単位処理でオブジェクトをメソッドスコープに閉じ込め、Old Generation への昇格を防いで Full GC を回避する",
     ],
     cautions: [
       "WeakHashMap のキーは WeakReference で保持されるため、キーへの強参照がなくなると GC 時にエントリが消える。リテラル文字列をキーにすると String Pool に強参照が残り、期待どおりに回収されない",
       "SoftReference は「メモリ不足時」に回収されるが、そのタイミングは JVM 依存。キャッシュのヒット率を保証するものではない",
       "WeakReference / SoftReference を使うと get() が null を返す可能性があるため、呼び出し側で必ず null チェックが必要になる",
       "コレクションを null 代入するだけでは、中の要素への参照が他に残っていれば GC されない。参照グラフ全体を意識すること",
+      "static な HashMap や ArrayList に追加だけ行って削除しないコードは、エントリが Old Generation に積み上がり続けて Full GC を繰り返す典型的なメモリリークになる。上限件数を設けるか SoftReference でラップすること。特に static final なキャッシュフィールドは「増えるのに減らない」実装になりやすいので注意",
+      "スレッドプール（Servlet コンテナの worker スレッドなど）で ThreadLocal.set() した値を remove() しないままスレッドが返却されると、そのスレッドが次のリクエストに再利用されたとき前の値が残留し続ける。スレッドがスレッドプールに属している限り ThreadLocal の値は GC されないため、大きなオブジェクトを set していた場合は実質的なメモリリークになる。try-finally で必ず remove() すること",
+      "G1GC では Region サイズ（ヒープに応じて 1〜32MB に自動設定、または -XX:G1HeapRegionSize で指定）の 50% を超えるオブジェクトは「Humongous オブジェクト」として Young Generation を経由せず Old Generation へ直接配置される。大きな byte[] や List を頻繁に生成するとこれが大量に Old Gen に溜まり Full GC を誘発する。対策は -XX:G1HeapRegionSize=16m でリージョンを大きくするか、大きなデータをストリーミング処理でバッファを使い回す設計にすること",
+      "System.gc() の明示呼び出しは Full GC のトリガーになる。自前コードだけでなく、RMI（Remote Method Invocation）はデフォルトで 1 時間ごとに System.gc() を呼び出す仕様になっており、RMI を使うアプリケーションで定期的な Full GC が観測されることがある。-XX:+DisableExplicitGC で完全に無効化できるが、DirectByteBuffer のクリーニングなど System.gc() に依存している部分がある場合は影響を先に確認すること",
+      "Metaspace が枯渇すると Full GC が発生してメタデータを回収しようとする。ClassLoader がリークしているとクラス情報が蓄積し続け、Metaspace の枯渇が繰り返される。-XX:MaxMetaspaceSize=256m のように上限を設定しておくことで、Metaspace が無制限に拡大して物理メモリを圧迫する事態を防げる。hot-reload が可能なアプリケーションサーバーでの再デプロイ時は特に注意が必要",
+      "G1GC の -XX:MaxGCPauseMillis は「目標」であり「保証」ではない。G1GC は目標に近づくよう Young 世代サイズを動的に調整するが、Old Generation が逼迫している場合は目標を超えた Full GC が発生する。低レイテンシが最優先なら ZGC（-XX:+UseZGC）への切り替えを検討すること。ZGC は 1ms 未満の停止を目指すが、スループットは G1GC より若干低下する場合がある",
     ],
     relatedArticleSlugs: ["gc-basics", "jvm-options", "performance-basics"],
     versionCoverage: {
-      java8: "WeakHashMap や WeakReference は Java 1.2 から利用可能。var が使えないため型を明示する必要がある。Stream も限定的で、計測コードは手続き的になりがち。",
-      java17: "var による型推論で WeakReference 周りのコードが簡潔になる。record で計測結果を不変オブジェクトとして扱える。テキストブロックでベストプラクティスをドキュメント化しやすい。",
-      java21: "sealed interface でキャッシュ戦略を型安全にモデリングできる。Virtual Thread はスタックが軽量（数 KB）なので、大量スレッド生成時の GC 負荷が Platform Thread より大幅に低い。",
+      java8: "WeakHashMap や WeakReference は Java 1.2 から利用可能。var が使えないため型を明示する必要がある。デフォルト GC は Parallel GC で Stop-The-World が長くなりやすく、Full GC 対策が特に重要だった時代。",
+      java17: "var による型推論で WeakReference 周りのコードが簡潔になる。record で計測結果を不変オブジェクトとして扱える。G1GC がデフォルトになり MaxGCPauseMillis による停止時間の制御が現実的になった。",
+      java21: "Generational ZGC（-XX:+UseZGC -XX:+ZGenerational）が標準搭載。1ms 未満の停止を維持しつつ世代別 GC で短命オブジェクトを効率的に回収できる。Virtual Thread はスタックが軽量なので大量スレッド起動時の GC 負荷も低い。",
       java8Code: `// Java 8: WeakHashMap + 明示的な型宣言
 WeakHashMap<String, byte[]> cache = new WeakHashMap<>();
 byte[] data = new byte[10 * 1024 * 1024];
-cache.put("key", data);
+cache.put(new Object(), data); // Object キー（リテラル文字列NG）
 data = null;
 System.gc();
-// cache.get("key") は null になる可能性がある
+// cache.size() は 0 になる可能性がある
 
-// 短命オブジェクト: 型を明示
-long sum = 0;
-for (int i = 0; i < count; i++) {
-    String temp = "item-" + i;
-    sum += temp.length();
+// ThreadLocal リーク対策（Java 8 でも同じパターン）
+static final ThreadLocal<String> CTX = new ThreadLocal<>();
+try {
+    CTX.set(value);
+    // 処理
+} finally {
+    CTX.remove(); // try-finally で確実に remove
 }`,
-      java17Code: `// Java 17: var + record で簡潔に
-var cache = new WeakHashMap<String, byte[]>();
-var data = new byte[10 * 1024 * 1024];
-cache.put("key", data);
-data = null;
-System.gc();
-// record でキャッシュ状態を表現
-record CacheStatus(int size, long memoryKb) {}
+      java17Code: `// Java 17: var + record でヒープ状態を構造化
+record HeapSnapshot(long usedMb, long maxMb, double pct) {}
+var mem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+var snap = new HeapSnapshot(
+    mem.getUsed() >> 20, mem.getMax() >> 20,
+    (double) mem.getUsed() / mem.getMax() * 100);
+if (snap.pct() > 80) System.err.println("警告: ヒープ使用率" + snap.pct() + "%");
 
-// 短命オブジェクト: var で簡潔に
-var sum = 0L;
-for (int i = 0; i < count; i++) {
-    var temp = "item-" + i;
-    sum += temp.length();
-}`,
-      java21Code: `// Java 21: sealed interface でキャッシュ戦略を型安全に分類
-sealed interface CacheStrategy {
-    record StrongRef(int maxSize) implements CacheStrategy {}
-    record WeakRef() implements CacheStrategy {}
-    record SoftRef() implements CacheStrategy {}
+// SoftReference キャッシュ（メモリ逼迫時に自動解放）
+var softRef = new SoftReference<>(new byte[1024 * 1024]);
+byte[] cached = softRef.get(); // OOM 直前に null になる可能性`,
+      java21Code: `// Java 21: Generational ZGC でほぼ STW なし
+// 起動: -XX:+UseZGC -XX:+ZGenerational
+// 世代別 GC で短命オブジェクトの回収が効率化される
+
+record HeapSnapshot(long usedMb, long maxMb, double pct, long gcCount) {
+    String level() { return pct > 90 ? "CRITICAL" : pct > 80 ? "WARNING" : "OK"; }
 }
-String desc = switch (strategy) {
-    case CacheStrategy.StrongRef s -> "強参照（最大" + s.maxSize() + "件）";
-    case CacheStrategy.WeakRef w   -> "WeakReference（GC 時に解放）";
-    case CacheStrategy.SoftRef s   -> "SoftReference（メモリ不足時に解放）";
-};`,
+var mem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+long gcCount = ManagementFactory.getGarbageCollectorMXBeans()
+    .stream().mapToLong(gc -> gc.getCollectionCount()).sum();
+var snap = new HeapSnapshot(
+    mem.getUsed() >> 20, mem.getMax() >> 20,
+    (double) mem.getUsed() / mem.getMax() * 100, gcCount);
+if (!"OK".equals(snap.level())) {
+    System.err.printf("[%s] ヒープ %.1f%% GC回数=%d%n",
+        snap.level(), snap.pct(), snap.gcCount());
+}`,
     },
     libraryComparison: [
       { name: "標準 API（WeakHashMap / SoftReference）", whenToUse: "少量のキャッシュや参照管理で十分なとき。外部依存なしで GC フレンドリーな設計が可能。", tradeoff: "キャッシュの最大サイズ制御や TTL（有効期限）は自前で実装する必要がある。" },
-      { name: "Caffeine", whenToUse: "LRU / TTL / サイズ制限付きの本格的なキャッシュが必要なとき。高負荷環境でのスループットに優れる。", tradeoff: "外部依存が増える。少量データのキャッシュにはオーバースペック。" },
-      { name: "Guava Cache", whenToUse: "Caffeine ほどの性能は不要だが、CacheBuilder の宣言的な API で手軽にキャッシュを構築したいとき。", tradeoff: "Caffeine に比べて性能面で劣る。Guava 全体の依存を持ち込むことになる。" },
+      { name: "Caffeine", whenToUse: "LRU / TTL / サイズ制限付きの本格的なキャッシュが必要なとき。高負荷環境でのスループットに優れ、WeakReference のラッパーも内蔵する。", tradeoff: "外部依存が増える。少量データのキャッシュにはオーバースペック。" },
+      { name: "Guava Cache", whenToUse: "CacheBuilder の宣言的な API で TTL・サイズ上限・統計情報付きのキャッシュを手軽に構築したいとき。", tradeoff: "Caffeine に比べて性能面で劣る。Guava 全体の依存を持ち込むことになる。" },
     ],
     faq: [
-      { question: "WeakReference と SoftReference はどう使い分けますか。", answer: "キャッシュには SoftReference が適しています。メモリ不足時のみ回収されるため、ヒット率が保たれます。WeakReference は次の GC で即回収されるため、一時的な参照の追跡に向いています。" },
-      { question: "WeakHashMap のキーにリテラル文字列を使っても大丈夫ですか。", answer: "推奨しません。リテラル文字列は String Pool に強参照が残るため、GC で回収されず WeakHashMap の利点が失われます。new String() でインスタンスを作るか、別の型をキーにしてください。" },
-      { question: "Full GC が頻発しているかどうかはどう調べますか。", answer: "GC ログ（-Xlog:gc*）を有効にし、Full GC の出現頻度と停止時間を確認します。VisualVM や GCViewer でログをグラフ化すると傾向がつかみやすくなります。" },
+      { question: "WeakReference と SoftReference はどう使い分けますか。", answer: "キャッシュには SoftReference が適しています。OOM 直前まで保持されるためヒット率が保たれます。WeakReference は次の GC で即回収されるため、オブジェクトの生死追跡やキャノニカルマッピングに向いています。" },
+      { question: "WeakHashMap のキーにリテラル文字列を使っても大丈夫ですか。", answer: "推奨しません。リテラル文字列は String Pool に強参照が残るため GC で回収されず、WeakHashMap の利点が失われます。別の型のオブジェクトをキーにするか、new String() でインターンされないインスタンスを生成してください。" },
+      { question: "Full GC が頻発しているかどうかはどう調べますか。", answer: "GC ログ（-Xlog:gc*）を有効にし、Full GC の出現頻度と停止時間を確認します。VisualVM や GCViewer でログをグラフ化すると傾向がつかみやすくなります。Full GC 直後に Old Generation の使用率がほとんど減っていない場合はメモリリークを疑ってください。" },
+      { question: "G1GC の -XX:MaxGCPauseMillis を小さく設定すれば Full GC は防げますか。", answer: "防げるとは限りません。MaxGCPauseMillis は G1GC が目標とする停止時間であり保証ではありません。Old Generation が逼迫するとこの目標を超えた Full GC が発生します。停止時間より先にメモリリークや Humongous オブジェクトの問題を解消することが先決です。" },
+      { question: "Humongous オブジェクトとは何ですか。どう対処しますか。", answer: "G1GC の Region サイズの 50% を超えるオブジェクトです。例えば Region が 4MB なら 2MB 超の byte[] が該当します。Young GC で回収されず Old Generation 直行となるため、頻繁に生成されると Full GC を誘発します。-XX:G1HeapRegionSize を大きく設定するか、大きなデータはストリーミング処理でバッファを使い回すことが対策です。" },
+      { question: "ThreadLocal のリーク原因を特定するにはどうすればよいですか。", answer: "-XX:+HeapDumpOnOutOfMemoryError でヒープダンプを取得し、Eclipse MAT で Thread オブジェクトから参照されている ThreadLocalMap のエントリを追跡します。GC ログに Full GC が頻発している一方でヒープ使用量が減っていない場合は ThreadLocal リークを疑ってください。コードレビューでは ThreadLocal.set() があれば同じコンテキスト内に remove() があるかを確認します。" },
     ],
-    codeTitle: "GcEfficientCache.java",
-    codeSample: `import java.util.WeakHashMap;
+    codeTitle: "FullGcPreventionPatterns.java",
+    codeSample: `import java.lang.management.*;
+import java.lang.ref.*;
+import java.util.*;
 
-public class GcEfficientCache {
+/**
+ * Full GC 回避パターン集
+ *
+ * === 起動 JVM オプション テンプレート ===
+ *
+ * [GC アルゴリズム選択]
+ *   -XX:+UseG1GC                          Java 9+ デフォルト（バランス重視）
+ *   -XX:+UseZGC                           低レイテンシ向け（Java 15+、STW < 1ms）
+ *   -XX:+UseZGC -XX:+ZGenerational        Generational ZGC（Java 21+、効率↑）
+ *
+ * [G1GC チューニング — Full GC 抑制]
+ *   -XX:MaxGCPauseMillis=200              目標停止時間（保証ではない）
+ *   -XX:G1HeapRegionSize=16m             Humongous 閾値を 8MB に引き上げ
+ *   -XX:G1NewSizePercent=30              Young 世代最小割合（デフォルト 5%）
+ *   -XX:InitiatingHeapOccupancyPercent=35 Mixed GC 開始閾値を下げて Old Gen 詰まりを防ぐ
+ *
+ * [System.gc() 無効化]
+ *   -XX:+DisableExplicitGC               System.gc() / RMI 定期 GC を無効化
+ *
+ * [Metaspace 上限]
+ *   -XX:MaxMetaspaceSize=256m            ClassLoader リーク時の保護
+ *
+ * [GC ログ・障害対応]
+ *   -Xlog:gc*:file=gc.log:time,uptime,level,tags
+ *   -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heap.hprof
+ */
+public class FullGcPreventionPatterns {
 
-    /** WeakHashMap を使った GC フレンドリーなキャッシュ */
-    static class SmartCache {
-        private final WeakHashMap<String, byte[]> cache = new WeakHashMap<>();
-
-        void put(String key, byte[] data) {
-            cache.put(key, data);
-        }
-
-        byte[] get(String key) {
-            return cache.get(key); // GC 後は null になる可能性あり
-        }
-
-        int size() {
-            return cache.size();
+    // ================================================================
+    // Part 1: ヒープ監視 — ManagementFactory で Full GC の予兆を捕捉
+    // ================================================================
+    record HeapSnapshot(long usedMb, long maxMb, double usagePct,
+                        long gcCount, long gcTimeMs) {
+        String level() {
+            if (usagePct > 90) return "CRITICAL";
+            if (usagePct > 80) return "WARNING";
+            return "OK";
         }
     }
 
-    /** 短命オブジェクト設計: メソッドスコープで参照を閉じる */
+    static HeapSnapshot captureHeap() {
+        var mem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+        long gcCount = 0, gcTimeMs = 0;
+        for (var gc : ManagementFactory.getGarbageCollectorMXBeans()) {
+            gcCount  += gc.getCollectionCount();
+            gcTimeMs += gc.getCollectionTime();
+        }
+        return new HeapSnapshot(
+            mem.getUsed() >> 20, mem.getMax() >> 20,
+            (double) mem.getUsed() / mem.getMax() * 100,
+            gcCount, gcTimeMs);
+    }
+
+    // ================================================================
+    // Part 2: 静的コレクションのメモリリーク対策
+    //         上限なし static キャッシュは Full GC の最多原因の一つ
+    // ================================================================
+
+    // BAD: 上限なし static HashMap → Old Gen に蓄積し続けて Full GC を誘発
+    // private static final Map<String, byte[]> CACHE = new HashMap<>();
+
+    // GOOD: SoftReference + LRU でメモリ逼迫時に自動解放
+    static class BoundedSoftCache {
+        private final Map<String, SoftReference<byte[]>> inner;
+
+        BoundedSoftCache(final int maxSize) {
+            this.inner = new LinkedHashMap<String, SoftReference<byte[]>>(
+                    16, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(
+                        Map.Entry<String, SoftReference<byte[]>> eldest) {
+                    return size() > maxSize;
+                }
+            };
+        }
+
+        public synchronized void put(String key, byte[] value) {
+            inner.put(key, new SoftReference<>(value));
+        }
+
+        public synchronized byte[] get(String key) {
+            SoftReference<byte[]> ref = inner.get(key);
+            if (ref == null) return null;
+            byte[] value = ref.get(); // OOM 直前に GC されると null
+            if (value == null) inner.remove(key); // ゴーストエントリを除去
+            return value;
+        }
+    }
+
+    // ================================================================
+    // Part 3: ThreadLocal リーク対策
+    //         Servlet / スレッドプール環境では remove() 漏れが
+    //         実質的なメモリリークになる
+    // ================================================================
+    static final ThreadLocal<String> REQUEST_ID = new ThreadLocal<>();
+
+    // BAD: スレッドが再利用されるたびに前のリクエストの値が残留
+    // void badProcess(String id) { REQUEST_ID.set(id); /* ... */ }
+
+    // GOOD: try-finally で必ず remove()
+    static void processWithContext(String requestId, Runnable task) {
+        REQUEST_ID.set(requestId);
+        try {
+            task.run();
+        } finally {
+            REQUEST_ID.remove(); // スレッドプール返却前に必ずクリア
+        }
+    }
+
+    // ================================================================
+    // Part 4: Humongous オブジェクト対策（G1GC）
+    //         ストリーミング処理でバッファを使い回し、
+    //         大きな byte[] の頻繁な生成を避ける
+    // ================================================================
+    static void streamCopy(java.io.InputStream in, java.io.OutputStream out)
+            throws java.io.IOException {
+        byte[] buf = new byte[64 * 1024]; // 64KB バッファを使い回す
+        int len;
+        while ((len = in.read(buf)) != -1) {
+            out.write(buf, 0, len);
+        }
+        // BAD 例: while (...) { byte[] chunk = new byte[1MB]; ... }
+        // 1MB の new が繰り返されると G1GC の Humongous 領域が消費される
+    }
+
+    // ================================================================
+    // Part 5: WeakHashMap — キーが GC されたらエントリも自動消滅
+    // ================================================================
+    static class WeakKeyCache {
+        private final WeakHashMap<Object, String> inner = new WeakHashMap<>();
+        public void put(Object key, String value) { inner.put(key, value); }
+        public String get(Object key) { return inner.get(key); }
+        public int size() { return inner.size(); }
+    }
+
+    // ================================================================
+    // Part 6: 短命オブジェクト設計
+    //         スコープを狭く保ち Young GC で完結させる
+    // ================================================================
     static long processData(int count) {
-        var sum = 0L;
+        long sum = 0;
         for (int i = 0; i < count; i++) {
-            var temp = "item-" + i; // ループ内で完結 → すぐ GC 対象
+            String temp = "item-" + i; // メソッド内で完結 → Young GC で回収
             sum += temp.length();
         }
-        return sum;
+        return sum; // temp への参照はここで消滅 → Old Gen への昇格なし
     }
 
     public static void main(String[] args) throws InterruptedException {
-        System.out.println("=== WeakHashMap の動作確認 ===");
+        // ヒープ監視
+        System.out.println("=== ヒープ状態確認 ===");
+        var snap = captureHeap();
+        System.out.printf("[%s] %.1f%% (%d/%d MB) | GC回数=%d 累計=%dms%n",
+            snap.level(), snap.usagePct(), snap.usedMb(), snap.maxMb(),
+            snap.gcCount(), snap.gcTimeMs());
+        if (!"OK".equals(snap.level())) {
+            System.err.println("→ Full GC の予兆。-XX:+HeapDumpOnOutOfMemoryError でダンプ取得を推奨");
+        }
 
-        var cache = new SmartCache();
-        byte[] data = new byte[10 * 1024 * 1024]; // 10MB
-        cache.put("large-data", data);
-        System.out.println("キャッシュサイズ（GC 前）: " + cache.size());
+        // ThreadLocal 正常パターン
+        System.out.println("\\n=== ThreadLocal リーク対策 ===");
+        processWithContext("req-001",
+            () -> System.out.println("処理中 requestId=" + REQUEST_ID.get()));
+        System.out.println("remove後: " + REQUEST_ID.get()); // null
 
-        // 強参照を切ると GC でエントリが回収される
-        data = null;
-        System.gc();
-        Thread.sleep(100);
-        System.out.println("キャッシュサイズ（GC 後）: " + cache.size());
+        // WeakHashMap の挙動
+        System.out.println("\\n=== WeakHashMap キャッシュ ===");
+        var weakCache = new WeakKeyCache();
+        byte[] key = new byte[1024];
+        weakCache.put(key, "関連データ");
+        System.out.println("GC前 size=" + weakCache.size()); // 1
+        key = null; // 強参照を解放
+        System.gc(); Thread.sleep(100);
+        System.out.println("GC後 size=" + weakCache.size()); // 0 の可能性
 
-        // 短命オブジェクト設計の効果を確認
+        // SoftReference キャッシュ
+        System.out.println("\\n=== SoftReference キャッシュ ===");
+        var softCache = new BoundedSoftCache(100);
+        softCache.put("img-001", new byte[10 * 1024]);
+        byte[] hit = softCache.get("img-001");
+        System.out.println("ヒット: " + (hit != null ? hit.length + " bytes" : "GC 済み"));
+
+        // 短命オブジェクト処理
         System.out.println("\\n=== 短命オブジェクト設計 ===");
-        var rt = Runtime.getRuntime();
-        var before = rt.totalMemory() - rt.freeMemory();
-        var result = processData(100_000);
-        System.gc();
-        Thread.sleep(100);
-        var after = rt.totalMemory() - rt.freeMemory();
-        System.out.println("処理結果: " + result);
-        System.out.println("メモリ差: " + ((after - before) / 1024) + " KB");
-
-        var bestPractices = """
-            === Full GC を防ぐベストプラクティス ===
-            1. オブジェクトのスコープを小さく保つ
-            2. 大きなコレクションは適宜クリア・null 代入
-            3. キャッシュには WeakReference / SoftReference を活用
-            4. -Xmx を適切に設定（大きすぎると GC 時間増大）
-            5. G1GC / ZGC を使う（Java 9+ / Java 15+）
-            """;
-        System.out.println(bestPractices);
+        long result = processData(100_000);
+        System.out.println("結果: " + result);
+        var after = captureHeap();
+        System.out.printf("処理後ヒープ: [%s] %.1f%%%n", after.level(), after.usagePct());
     }
 }`,
   },

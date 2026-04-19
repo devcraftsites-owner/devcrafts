@@ -137,87 +137,150 @@ public class BatchFrameworkDesign {
   slug: "batch-basic-structure",
   title: "Java バッチの前処理・本処理・後処理を CsvImportJob で実装する",
   categorySlug: "batch",
-  summary: "BatchJob インターフェースを実装し、CSV 取込ジョブで前処理/本処理/後処理の分離パターンを実践する。",
+  summary: "BatchJob インターフェースを実装し、CSV 取込ジョブで前処理/本処理/後処理の分離パターンを実践する。ジョブマネージャ連携・exit コード・リラン設計・HA クラスタ制御・監視ログも解説。",
   version: "Java 8",
-  tags: ["バッチ", "CSV", "前処理", "本処理", "後処理", "バリデーション"],
-  apiNames: ["BufferedReader", "FileReader", "File", "ArrayList", "String.split"],
-  description: "BatchJob インターフェースを CsvImportJob で実装し、入力ファイル確認・CSV読込バリデーション・結果サマリ出力の3フェーズ分離を Java 8/17/21 対応で解説する。",
-  lead: "バッチ処理の設計で最も基本的かつ重要なのは、前処理・本処理・後処理の責務を明確に分離することです。前処理で入力ファイルの存在確認や形式チェックを済ませておけば、本処理で初歩的なエラーに悩まされることはありません。後処理で処理件数やエラー件数のサマリを出力すれば、運用担当者が実行結果を即座に判断できます。BatchJob インターフェースを CSV 取込ジョブとして実装し、入力ファイルの存在確認（前処理）、1行ずつの読込とバリデーション（本処理）、処理結果のサマリ出力（後処理）を具体的なコードで示した。ヘッダー行のスキップ、カラム数不一致の検出、エラー行の記録も盛り込んでいる。",
+  tags: ["バッチ", "CSV", "前処理", "本処理", "後処理", "バリデーション", "ジョブマネージャ", "exitコード", "リラン", "監視"],
+  apiNames: ["BufferedReader", "FileReader", "File", "ArrayList", "String.split", "System.exit"],
+  description: "BatchJob インターフェースを CsvImportJob で実装し、3フェーズ分離・ジョブマネージャ連携・exit コード・リラン/リカバリ設計・HA クラスタ制御・監視ログ出力を Java 8/17/21 対応で解説する。",
+  lead: "バッチ処理の設計で最も基本的かつ重要なのは、前処理・本処理・後処理の責務を明確に分離することです。前処理で入力ファイルの存在確認や形式チェックを済ませておけば、本処理で初歩的なエラーに悩まされることはありません。後処理で処理件数やエラー件数のサマリを出力すれば、運用担当者が実行結果を即座に判断できます。\n\n近年開発されるシステムでは Spring Batch のようなフレームワークを採用するケースが増えていますが、金融・製造・物流の基幹系や、長年稼働してきたレガシー環境では JP1・Hinemos・TWS などのジョブマネージャによるスケジューリングが前提になっていることが多く、「コマンドラインで起動できる JAR を用意して終了コードで正否を返す」というシンプルな構成が今も広く使われています。この構成では、終了コード・リラン/リカバリ設計・HA クラスタでの二重起動防止・監視システムへのログ連携が、フレームワークが提供してくれない分だけ自前で考慮する必要があります。BatchJob インターフェースを CSV 取込ジョブとして実装し、入力ファイルの存在確認（前処理）、1行ずつの読込とバリデーション（本処理）、処理結果のサマリ出力と System.exit（後処理）を具体的なコードで示した。",
   useCases: [
     "取引先から受領した CSV ファイルを日次バッチで取り込み、バリデーション結果をログに出力する",
-    "月次の売上データ CSV を読み込み、不正行をスキップしつつ正常データだけを後続処理に渡す",
-    "社内システムのマスタ一括更新バッチで、更新前に入力ファイルの形式をチェックする",
+    "JP1 や cron に登録したバッチジョブが終了コードで成否を返し、ジョブマネージャのアラート通知と連動させる",
+    "HA クラスタ（active-standby 構成）上で実行するバッチが、フェイルオーバー後の二重起動を防ぎつつリランを安全に行う",
   ],
   cautions: [
     "CSV のカラム区切りにカンマを使う場合、値にカンマが含まれるケースを考慮すること",
     "BufferedReader は finally で必ず閉じること。terminate() で閉じる設計にする場合、execute() が例外で中断しても漏れなく解放されることを確認する",
     "バリデーションエラーが大量に出る場合、全行をメモリに溜めるとヒープを圧迫する。エラー上限を設けること",
     "入力ファイルの文字コードが Shift_JIS の場合、InputStreamReader で明示的にエンコーディングを指定する",
-    "実務では前処理・本処理・後処理の責務が曖昧なバッチが多く、本処理の冒頭で入力ファイルの存在確認をしていたり、ループ内でサマリ集計していたりする。責務の分離を最初に決めておくだけで保守コストが大きく下がる。",
+    "実務では前処理・本処理・後処理の責務が曖昧なバッチが多く、本処理の冒頭で入力ファイルの存在確認をしていたり、ループ内でサマリ集計していたりする。責務の分離を最初に決めておくだけで保守コストが大きく下がる",
+    "ジョブマネージャに登録するバッチは System.exit() で終了コードを明示的に返すこと。正常終了 0、警告（スキップあり）1、異常終了 2 のように体系化しておくと、ジョブネットの後続条件設定が安定する。return で抜けた場合の終了コードは 0 になるため、例外で終了したケースが見逃されやすい",
+    "リラン（再実行）を安全に行うには冪等性の設計が必要。すでに取り込んだレコードを再度 INSERT するとデータが重複する。処理済みフラグをファイルや DB で管理するか、UPSERT（INSERT OR UPDATE）で対処すること。どこまで処理したかをチェックポイントファイルに残しておくと、中断後のリスタートが正確になる",
+    "HA クラスタで active-standby 切替後に同じジョブが二重起動されることがある。ロックファイル（起動時に作成・終了時に削除）か DB の排他フラグで多重起動を防ぐこと。ロックファイルが異常終了後に残り続けるケースも想定し、タイムスタンプと PID を記録して古いロックを検出できる仕組みを持たせること",
+    "監視システム（Zabbix・Datadog・SIEM 等）でバッチの異常を検知するには、ログに一定のキーワードパターンが必要になる。ERROR や FATAL のプレフィックスを統一し、ジョブ名・処理件数・終了コードを必ず含めること。標準出力への println だけでは監視エージェントに拾われないことがある",
+    "バッチの実行時間に業務上の制限（例：夜間ウィンドウ 23:00〜05:00 の 6 時間以内）がある場合、事前にデータ件数 × 1レコードあたりの処理時間を見積もること。想定ヒープサイズは「同時保持するデータ行数 × 1行あたりのオブジェクトサイズ」で粗く計算し、-Xmx で上限を明示すること。メモリ不足は OutOfMemoryError として現れるが、実行時間超過はジョブマネージャのタイムアウト強制終了となりログが残らないこともある",
   ],
   relatedArticleSlugs: ["batch-framework-design", "batch-properties-config"],
   versionCoverage: {
-    java8: "BufferedReader + FileReader の組み合わせで1行ずつ読み込む。try-with-resources でリソース管理する。",
+    java8: "BufferedReader + FileReader の組み合わせで1行ずつ読み込む。try-with-resources でリソース管理する。System.exit() で終了コードを返す。",
     java17: "Files.lines() で読込がシンプルになる。var でローカル変数の型宣言を省略できる。",
-    java21: "record でバリデーション結果を型安全に保持できる。pattern matching で分岐が簡潔になる。",
-    java8Code: `// Java 8: BufferedReader で1行ずつ読み込み
+    java21: "record でバリデーション結果とジョブ実行サマリを型安全に保持できる。switch パターンマッチングで終了コード分岐が簡潔になる。",
+    java8Code: `// Java 8: BufferedReader で1行ずつ読み込み、System.exit で終了コード返却
 BufferedReader reader = new BufferedReader(
     new InputStreamReader(new FileInputStream(file), "UTF-8"));
 String line;
 while ((line = reader.readLine()) != null) {
     String[] columns = line.split(",", -1);
-}`,
+}
+// ジョブマネージャに終了コードを返す（0=正常, 1=警告, 2=異常）
+System.exit(exitCode);`,
     java17Code: `// Java 17: Files.lines() でストリーム処理
 try (var lines = Files.lines(path, StandardCharsets.UTF_8)) {
     lines.skip(1).map(line -> line.split(",", -1))
          .filter(cols -> cols.length == expected)
          .forEach(this::processRecord);
 }`,
-    java21Code: `// Java 21: record でバリデーション結果を表現
-record ValidationError(int lineNumber, String message) {}
-List<ValidationError> errors = new ArrayList<>();`,
+    java21Code: `// Java 21: record でジョブ実行サマリを型安全に表現
+record JobSummary(int total, int success, int skipped, int errors, long elapsedMs) {
+    int exitCode() {
+        return errors > 0 ? 2 : skipped > 0 ? 1 : 0;
+    }
+}
+// switch パターンマッチングで終了コードに応じたログを分岐
+var summary = new JobSummary(total, success, skipped, errors, elapsed);
+String logMsg = switch (summary.exitCode()) {
+    case 0 -> "SUCCESS: " + summary.success() + "件処理完了";
+    case 1 -> "WARNING: スキップ" + summary.skipped() + "件";
+    default -> "ERROR: エラー" + summary.errors() + "件";
+};`,
   },
   libraryComparison: [
-    { name: "Pure Java（BufferedReader + split）", whenToUse: "引用符なしの単純な CSV で外部依存を入れられない場合。", tradeoff: "RFC 4180 準拠が必要な場合は自前実装の工数が増える。" },
+    { name: "Pure Java（BufferedReader + split）", whenToUse: "引用符なしの単純な CSV で外部依存を入れられない場合。ジョブマネージャから呼ばれる軽量バッチ。", tradeoff: "RFC 4180 準拠が必要な場合は自前実装の工数が増える。" },
     { name: "OpenCSV", whenToUse: "引用符囲み、エスケープ、Bean バインドが必要な場合。", tradeoff: "外部依存が増える。単純な CSV には過剰。" },
     { name: "Apache Commons CSV", whenToUse: "RFC 4180 準拠の厳密なパースが必要な場合。", tradeoff: "Commons 系の依存が増える。" },
   ],
   faq: [
     { question: "ヘッダー行の有無はどう判定すればよいですか。", answer: "設定値で「ヘッダーあり/なし」を指定する方法が安全です。自動判定は誤判定のリスクがあります。" },
-    { question: "バリデーションエラーが出たら即座に中断すべきですか。", answer: "全行チェックしてエラー一覧を返すほうが、修正→再投入のサイクルが1回で済むため効率的な場合が多いです。" },
-    { question: "CSV の文字コードが不明な場合はどう対処しますか。", answer: "BOM の有無を先頭バイトで確認し、なければ UTF-8 を試してフォールバックする方法が実務では多く使われます。" },
+    { question: "ジョブマネージャに登録するとき終了コードはどう設計しますか。", answer: "0=正常終了、1=警告（スキップあり・後続は実行）、2=異常終了（後続を止める）の3値が最低限必要です。ジョブマネージャのジョブネット設定と事前に合わせておくことが重要です。return で抜けると終了コードが 0 になるため、必ず System.exit() で返してください。" },
+    { question: "バッチ失敗後のリランはどう設計すればよいですか。", answer: "処理済みレコードを再実行しても結果が変わらない冪等設計が基本です。DB への INSERT は UPSERT に変えるか、処理済みフラグをテーブルで管理します。中断ポイントをチェックポイントファイルに残せば、全件ではなく途中からのリスタートも可能になります。" },
+    { question: "実行時間の見積もりはどう行いますか。", answer: "テスト環境で実データに近いデータ量を使った計測が最も信頼できます。概算は「件数 × 1件あたりの処理時間（ms）」で出し、業務ウィンドウの 70〜80% 以内に収まるか確認します。I/O が支配的な場合はストレージ速度の差が大きく効くため、本番相当の環境での計測を推奨します。" },
   ],
-  codeTitle: "CsvImportJob の実装",
+  codeTitle: "CsvImportJob の実装（ジョブマネージャ連携・リラン対応）",
   codeSample: `import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * CSV 取込バッチ — ジョブマネージャ連携版
+ *
+ * 終了コード:
+ *   0 ... 正常終了（全件処理成功）
+ *   1 ... 警告終了（スキップあり・後続ジョブは続行）
+ *   2 ... 異常終了（処理中断・後続ジョブを止める）
+ *
+ * リラン設計:
+ *   - チェックポイントファイル（.done）が存在する場合はスキップ
+ *   - 多重起動防止: ロックファイル（.lock）を起動時に作成・終了時に削除
+ */
 public class CsvImportJob {
     private static final Logger LOGGER = Logger.getLogger(CsvImportJob.class.getName());
     private static final int EXPECTED_COLUMNS = 4;
     private static final int MAX_ERRORS = 100;
 
     private final File inputFile;
+    private final File lockFile;
+    private final File doneFile;
     private BufferedReader reader;
     private int totalCount;
     private int successCount;
     private final List<String> errors = new ArrayList<String>();
 
-    public CsvImportJob(File inputFile) { this.inputFile = inputFile; }
-
-    public void initialize() throws Exception {
-        if (!inputFile.exists()) throw new IllegalStateException("ファイルが見つかりません: " + inputFile);
-        reader = new BufferedReader(new InputStreamReader(new FileInputStream(inputFile), "UTF-8"));
-        String header = reader.readLine();
-        if (header == null) throw new IllegalStateException("ファイルが空です");
-        LOGGER.info("入力ファイル確認完了: " + inputFile.getName());
+    public CsvImportJob(File inputFile) {
+        this.inputFile = inputFile;
+        this.lockFile  = new File(inputFile.getParent(), inputFile.getName() + ".lock");
+        this.doneFile  = new File(inputFile.getParent(), inputFile.getName() + ".done");
     }
 
+    /** 前処理: ファイル確認・多重起動防止・リラン判定 */
+    public void initialize() throws Exception {
+        // リラン判定: 前回正常終了していればスキップ
+        if (doneFile.exists()) {
+            LOGGER.info("[SKIP] 処理済みファイルを検出: " + doneFile.getName() + " — リラン対象外");
+            System.exit(0);
+        }
+        // 多重起動防止: ロックファイルが存在すれば起動しない
+        if (lockFile.exists()) {
+            LOGGER.severe("[ERROR] 多重起動を検出: " + lockFile.getName() + " が存在します");
+            System.exit(2);
+        }
+        // ロックファイル作成（PID と起動時刻を記録）
+        try (FileWriter fw = new FileWriter(lockFile)) {
+            fw.write("pid=" + ProcessHandle.current().pid()
+                + " started=" + System.currentTimeMillis());
+        }
+        if (!inputFile.exists()) {
+            LOGGER.severe("[ERROR] 入力ファイルが見つかりません: " + inputFile);
+            lockFile.delete();
+            System.exit(2);
+        }
+        reader = new BufferedReader(
+            new InputStreamReader(new FileInputStream(inputFile), "UTF-8"));
+        String header = reader.readLine();
+        if (header == null) {
+            LOGGER.severe("[ERROR] 入力ファイルが空: " + inputFile.getName());
+            lockFile.delete();
+            System.exit(2);
+        }
+        LOGGER.info("[START] ジョブ開始 file=" + inputFile.getName());
+    }
+
+    /** 本処理: 1行ずつ読み込んでバリデーション */
     public int execute() throws Exception {
         String line;
         int lineNum = 1;
@@ -228,7 +291,10 @@ public class CsvImportJob {
             String[] cols = line.split(",", -1);
             if (cols.length != EXPECTED_COLUMNS) {
                 errors.add("行" + lineNum + ": カラム数不一致(" + cols.length + ")");
-                if (errors.size() >= MAX_ERRORS) { LOGGER.warning("エラー上限到達"); return 2; }
+                if (errors.size() >= MAX_ERRORS) {
+                    LOGGER.warning("[WARN] エラー上限(" + MAX_ERRORS + "件)到達 — 中断");
+                    return 2;
+                }
                 continue;
             }
             if (cols[0].trim().isEmpty() || cols[1].trim().isEmpty()) {
@@ -240,21 +306,58 @@ public class CsvImportJob {
         return errors.isEmpty() ? 0 : 1;
     }
 
-    public void terminate() {
+    /** 後処理: サマリ出力・ロック解除・完了フラグ書き込み */
+    public void terminate(int exitCode) {
         if (reader != null) { try { reader.close(); } catch (Exception e) { /* ignore */ } }
-        LOGGER.info("=== 処理結果 ===");
-        LOGGER.info("総行数: " + totalCount + " / 成功: " + successCount + " / エラー: " + errors.size());
-        for (String err : errors) { LOGGER.warning(err); }
+
+        // 監視システムが拾えるキーワードを含むサマリログ
+        // ジョブ名・総件数・成功件数・エラー件数・終了コードを必ず含める
+        String status = exitCode == 0 ? "SUCCESS" : exitCode == 1 ? "WARNING" : "ERROR";
+        LOGGER.info(String.format("[%s] job=CsvImportJob total=%d success=%d error=%d exitCode=%d",
+            status, totalCount, successCount, errors.size(), exitCode));
+        for (String err : errors) { LOGGER.warning("[DETAIL] " + err); }
+
+        // 正常/警告終了時は完了フラグを書き込み、次回リランをスキップ
+        if (exitCode < 2) {
+            try (FileWriter fw = new FileWriter(doneFile)) {
+                fw.write("completed=" + System.currentTimeMillis()
+                    + " success=" + successCount + " errors=" + errors.size());
+            } catch (Exception e) {
+                LOGGER.warning("[WARN] 完了フラグの書き込み失敗: " + e.getMessage());
+            }
+        }
+        // ロックファイル削除（異常終了時も必ず削除）
+        lockFile.delete();
     }
 
+    /**
+     * エントリポイント — ジョブマネージャから呼ばれる想定
+     *
+     * 起動例（JP1 / cron）:
+     *   java -Xmx512m -cp batch.jar CsvImportJob /data/import/sales_20240501.csv
+     *
+     * HA クラスタ注意:
+     *   active-standby 切替後は同じファイルで二重起動が起こりうる。
+     *   ロックファイルと .done ファイルを共有ストレージ上に置くこと。
+     */
     public static void main(String[] args) {
-        if (args.length < 1) { System.err.println("使い方: java CsvImportJob <CSVパス>"); return; }
+        if (args.length < 1) {
+            System.err.println("使い方: java CsvImportJob <CSVパス>");
+            System.exit(2);
+            return;
+        }
         CsvImportJob job = new CsvImportJob(new File(args[0]));
         int exitCode = 2;
-        try { job.initialize(); exitCode = job.execute(); } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "エラー", e);
-        } finally { job.terminate(); }
-        LOGGER.info("終了コード: " + exitCode);
+        try {
+            job.initialize();
+            exitCode = job.execute();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "[ERROR] 予期しない例外 job=CsvImportJob", e);
+        } finally {
+            job.terminate(exitCode);
+        }
+        // ジョブマネージャに終了コードを返す — return ではなく必ず System.exit() を使う
+        System.exit(exitCode);
     }
 }`,
 },
