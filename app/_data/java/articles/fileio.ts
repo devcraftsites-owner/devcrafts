@@ -276,7 +276,7 @@ public class FileIoBasics {
       "BOM（Byte Order Mark）付き UTF-8 ファイルを読むと先頭フィールドに \\uFEFF が混入する。必要に応じて除去処理を入れること。",
       "実務でよく見かけるのが、Excel から出力した CSV の先頭に BOM が付いていてパース結果がおかしくなるケース。取込元が Excel の場合は BOM 除去処理を最初から入れておくと後の調査コストが下がる。",
     ],
-    relatedArticleSlugs: ["file-io-basics", "fixed-length-records", "yaml-parsing"],
+    relatedArticleSlugs: ["json-parsing", "zengin-format"],
     versionCoverage: {
       java8: "BufferedReader + FileInputStream で1行ずつ読み込む。Stream API は使えるが、Files.lines() のパス指定には Paths.get() が必要。",
       java17: "Files.readAllLines() / Files.write() で簡潔に読み書き可能。var とメソッド参照の組み合わせで記述量が減る。",
@@ -598,7 +598,7 @@ public class NioFileOperations {
       "JsonNode.get() は存在しないキーで null を返すため NPE のリスクがある。path() を使えば MissingNode が返り安全。",
       "実務では外部 API の仕様変更でフィールドが増減したときに UnrecognizedPropertyException が発生して障害になるケースがある。外部 API のレスポンスを受けるクラスには @JsonIgnoreProperties(ignoreUnknown = true) を最初から付けておくのが安全。",
     ],
-    relatedArticleSlugs: ["xml-processing", "yaml-parsing", "properties-config"],
+    relatedArticleSlugs: ["csv-read-write", "http-client-basic"],
     versionCoverage: {
       java8: "POJO（getter/setter + デフォルトコンストラクタ）でマッピングする。JSON 文字列は + 演算子で連結するため可読性が下がる。",
       java17: "record（Java 16+）で不変なデータクラスとしてマッピングできる。テキストブロックで JSON リテラルを読みやすく記述できる。",
@@ -973,7 +973,7 @@ public class FixedLengthRecords {
       "振込指定日（MMDD）が銀行の営業日でない場合、翌営業日扱いになるか受付拒否になるかは銀行の運用による。事前に営業日カレンダーとの突き合わせが必要。",
       "レコード間の改行コードの扱いは銀行によって3パターンある。①CRLF（\\r\\n）を含めて受け付ける、②LFのみを受け付ける、③改行コードなし（120バイト×レコード数の純粋な固定長連結）を要求する。仕様書に記載がない場合は必ず銀行に確認すること。改行コードの不一致は受付エラーの典型的な原因のひとつ。",
     ],
-    relatedArticleSlugs: ["fixed-length-records", "csv-read-write", "zengin-charset"],
+    relatedArticleSlugs: ["csv-read-write", "zengin-charset", "zengin-edi-zedi"],
     versionCoverage: {
       java8: "データクラスは手動でフィールド・コンストラクタを定義する必要がある。String.format() でパディングし、StringBuilder でレコードを組み立てる。var が使えないため型宣言が冗長になる。",
       java17: "record で振込データを簡潔に定義できる。var による型推論と String.formatted() で記述量が大幅に減る。テキストブロックはバイナリフォーマットでは使わないが、テスト用の期待値記述には有用。",
@@ -1272,7 +1272,7 @@ public class ZenginFormatGenerator {
       "ISO 20022 のメッセージには多数の任意要素がある。パース時に getElementsByTagNameNS() の結果が空（getLength() == 0）になるケースを必ずハンドリングし、NullPointerException を防ぐこと。",
       "ZEDI の技術仕様書で定められた要素名（CstmrCdtTrfInitn、RmtInf、RfrdDocInf など）は ISO 20022 の略語に基づいている。仕様書のフィールド定義と XML 要素名の対応を事前に確認してから実装に入ること。",
     ],
-    relatedArticleSlugs: ["xml-processing", "zengin-format", "zengin-charset"],
+    relatedArticleSlugs: ["zengin-format", "zengin-charset"],
     versionCoverage: {
       java8: "DOM / StAX ともに使用可能だが、var が使えず型宣言が冗長になる。パース結果の保持に Map や独自クラスが必要で、record のような簡潔な定義はできない。",
       java17: "var で DOM 操作のローカル変数を簡潔に記述でき、record でパース結果を不変かつ型安全に保持できる。テキストブロックでサンプル XML の埋め込みも可読性が高い。",
@@ -1631,7 +1631,7 @@ public class ZenginEdiSample {
       "英小文字は全銀フォーマットで不可: 半角英字は大文字（A-Z）のみ許容される。入力値に小文字が含まれる場合は toUpperCase() で変換するか、エラーとして返すかを業務要件に応じて決める。",
       "Shift_JIS と JIS X 0201 の関係: Shift_JIS の半角カナ領域（0xA1-0xDF）は JIS X 0201 の片仮名集合に対応するが、Java の内部エンコーディングは UTF-16 であるため、Unicode のコードポイント（0xFF65-0xFF9F）で判定する。Shift_JIS のバイト値と直接比較しないこと。",
     ],
-    relatedArticleSlugs: ["zengin-format", "zengin-edi-zedi", "fixed-length-records"],
+    relatedArticleSlugs: ["zengin-format", "zengin-edi-zedi"],
     versionCoverage: {
       java8: "HashMap + static イニシャライザで変換テーブルを構築する。拡張 for ループで1文字ずつ処理し、String.format でエラー情報を整形する。Map は Collections.unmodifiableMap で保護する。",
       java17: "Map.ofEntries() でイミュータブルな変換テーブルを宣言的に構築できる。var による型推論で記述量が減り、record で Violation 情報を保持できる。formatted() メソッドで文字列整形も簡潔になる。",

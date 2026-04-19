@@ -157,7 +157,7 @@ public class LoggingBasicsExample {
       "例外クラスを細分化しすぎると catch ブロックが増えて可読性が下がる。レイヤーごとに1〜2種類の例外に集約するのが実務的なバランス",
       "障害調査で「ログに例外が出ていない」というケースの多くは、catch してメッセージだけ記録し cause を渡していないことが原因。例外をラップするコードには必ずレビューで cause の有無を確認する習慣をつけること。",
     ],
-    relatedArticleSlugs: ["logging-basics"],
+    relatedArticleSlugs: ["junit5-basics", "batch-basic-structure"],
     versionCoverage: {
       java8: "例外チェーンの仕組み自体は Java 1.4 からあり、Java 8 でも同じように使える。原因追跡のユーティリティは while ループで getCause() を辿る形になる。",
       java17: "record で ExceptionInfo（型名・メッセージ）を定義し、チェーンの情報をリストとして構造化できる。var で変数宣言が簡潔になる。",

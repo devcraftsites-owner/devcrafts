@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
       "\"target\".equals(variable) のように定数を左辺に置く書き方は null 安全だが、可読性とのトレードオフがある。チーム内で方針を揃えておくこと",
       "実務では trim() と isBlank() を混用して「スペースのみの入力」を見逃すケースがある。画面からの入力値はまず trim() してから isEmpty() で空判定する流れをチーム内で統一しておくと安全。",
     ],
-    relatedArticleSlugs: ["padding-trim", "regex-basics"],
+    relatedArticleSlugs: ["regex-basics"],
     versionCoverage: {
       java8: "isBlank() が使えないため、null チェック後に trim().isEmpty() で空白判定する。Optional は使えるが filter 内で isBlank を呼べない。",
       java17: "isBlank() / isEmpty() の使い分けが可能。Optional.filter(s -> !s.isBlank()) で null と空白を一括排除でき、コードが簡潔になる。",
@@ -255,7 +255,7 @@ String padded = "0".repeat(Math.max(0, 5 - "42".length())) + "42";`,
       "日本語の電話番号パターンは市外局番の桁数が地域によって異なる（03- は2桁、045- は3桁など）。単一の正規表現で全パターンをカバーしようとすると保守が難しくなる",
       "実務では電話番号や郵便番号の仕様が変わっていてパターンが古くなっていたケースに遭遇することがある。正規表現にはコメントで意図を明記し、テストデータに桁数の境界値やハイフンあり・なしを含めておくこと。",
     ],
-    relatedArticleSlugs: ["null-safe-string", "half-width-kana"],
+    relatedArticleSlugs: ["null-safe-string"],
     versionCoverage: {
       java8: "Pattern / Matcher の基本機能は使えるが、名前付きキャプチャグループは group(\"name\") で取得可能（Java 7+）。asMatchPredicate は使えない。",
       java17: "Pattern.asMatchPredicate() で Stream との連携が簡潔になる。var による型推論で Matcher の宣言も短くなる。",

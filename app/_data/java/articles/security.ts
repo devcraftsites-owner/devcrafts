@@ -24,7 +24,7 @@ export const articles: JavaArticleDetail[] = [
       "OWASP 推奨のイテレーション回数（2023年時点で310,000回）はハードウェアの進歩に合わせて見直す必要がある。定数としてコードに埋め込む場合でも、変更しやすい設計にしておくこと",
       "実務で見かける危険な実装として、MD5 ハッシュをそのまま使いつつ「ハッシュ化しているから安全」と思っているケースがある。レガシーコードのパスワード保存方式は必ず確認し、不十分な場合は移行計画を立てること。",
     ],
-    relatedArticleSlugs: ["aes-encryption", "base64-encoding"],
+    relatedArticleSlugs: ["base64-encoding"],
     versionCoverage: {
       java8: "PBKDF2WithHmacSHA256 は Java 8 でも利用可能。var や record が使えないため、ハッシュとソルトは別々の変数で管理する形になる。",
       java17: "var と record を使ってハッシュとソルトを HashResult にまとめられる。コードの見通しが良くなり、返り値の受け渡しが安全になる。",

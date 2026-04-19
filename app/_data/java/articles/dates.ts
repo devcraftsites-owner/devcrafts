@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
       "年末年始やお盆休みは祝日ではないため、別途ルールとして管理する。",
       "「締日が土日祝に当たる場合は前営業日か翌営業日か」はビジネス側との確認が必要。年度末や大型連休明けに仕様の認識ズレが発覚すると手戻りが大きい。",
     ],
-    relatedArticleSlugs: ["japan-holiday-list", "holiday-check", "date-provider"],
+    relatedArticleSlugs: ["japan-holiday-list", "wareki-conversion", "timezone-conversion"],
     versionCoverage: {
       java8: "LocalDate で基本的な営業日計算は可能。Set の初期化に Arrays.asList + HashSet が必要。",
       java17: "Stream.iterate + datesUntil で営業日の抽出をストリームベースに記述できる。var で型宣言が簡潔になる。",
@@ -118,7 +118,7 @@ public class BusinessDayCalculator {
       "振替休日は「祝日が日曜に当たった場合、翌月曜が休日」というルール。",
       "「山の日」（2016年制定）など比較的新しい祝日が漏れているコードを保守案件でよく見かける。法定祝日の追加・変更は内閣府のウェブサイトで確認し、年次でリストを見直す運用ルールをチームで決めておくこと。",
     ],
-    relatedArticleSlugs: ["localdate-business-days"],
+    relatedArticleSlugs: ["localdate-business-days", "wareki-conversion"],
     versionCoverage: {
       java8: "LocalDate で祝日リストの管理は可能。Set の初期化に Arrays.asList + HashSet を使う。振替休日の判定ロジックは同じ。",
       java17: "Set.of() でイミュータブルな祝日セットを簡潔に初期化できる。var と toList() で記述量が減る。",
@@ -244,7 +244,7 @@ public class JapanHolidays {
       "DateTimeFormatter の和暦パターンはロケール依存のため、Locale.JAPAN を明示する。",
       "現場では「令和1年」と「令和元年」の表記揺れが帳票要件で問題になることがある。「元」表記が必要なら DateTimeFormatterBuilder でカスタムフォーマッタを構築すること。",
     ],
-    relatedArticleSlugs: ["localdate-business-days"],
+    relatedArticleSlugs: ["localdate-business-days", "japan-holiday-list"],
     versionCoverage: {
       java8: "JapaneseDate は Java 8 から使用可能。ただし令和の元号は Java 8u221 以降、Java 11.0.3 以降、または Java 12.0.1 以降で対応。",
       java17: "令和に完全対応。switch 式で元号略称の分岐が簡潔に書ける。record との組み合わせで変換結果を型安全に返せる。",
@@ -348,7 +348,7 @@ public class WarekiConverter {
       "ZoneId.of() に不正な文字列を渡すと DateTimeException が発生する。",
       "DB のタイムスタンプを UTC で保存しているつもりが、JDBC ドライバのデフォルト設定でサーバのローカルタイムに変換されていたケースがある。MySQL / MariaDB の接続 URL には serverTimezone=UTC を明示すること。",
     ],
-    relatedArticleSlugs: ["localdate-business-days"],
+    relatedArticleSlugs: ["localdate-business-days", "wareki-conversion"],
     versionCoverage: {
       java8: "ZonedDateTime は Java 8 から使用可能。withZoneSameInstant でタイムゾーン変換ができる。",
       java17: "基本的な使い方は Java 8 と同じ。switch 式で出力フォーマットの切り替えが簡潔に書ける。",

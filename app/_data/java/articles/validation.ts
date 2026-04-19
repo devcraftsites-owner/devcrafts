@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
       "税率は法改正で変わる可能性があるため、定数管理を推奨する。",
       "現場では「請求書の合計が明細の税込小計の合算とずれる」という問題が頻発する。明細ごとに切り捨てか、合計に対して一括で端数処理するかを設計段階で決め、テストデータに端数が出るケースを含めておくこと。",
     ],
-    relatedArticleSlugs: [],
+    relatedArticleSlugs: ["unit-conversion", "percentage-calculation"],
     versionCoverage: {
       java8: "BigDecimal と RoundingMode は Java 8 から使用可能。税込み計算のメソッド化も同じ書き方でできる。",
       java17: "switch 式で商品種別による税率の切り替えが簡潔になる。record で金額と税額をまとめると可読性が上がる。",
@@ -131,7 +131,7 @@ public class TaxCalculator {
       "ゼロ除算は事前チェックで防ぐ。BigDecimal.ZERO との比較には compareTo を使う。",
       "実務では「前年比」「達成率」など用語ごとに分母が何かを明確にする必要がある。計算ロジックを実装する前に、ビジネス側と定義を合わせておくことで後からの仕様変更を防げる。",
     ],
-    relatedArticleSlugs: ["tax-calculation"],
+    relatedArticleSlugs: ["tax-calculation", "unit-conversion"],
     versionCoverage: {
       java8: "BigDecimal と MathContext は Java 8 から使用可能。計算結果は個別の変数で管理する形になる。",
       java17: "var と record で計算結果を構造化できる。コードの意図が型で伝わりやすくなる。",
@@ -239,7 +239,7 @@ public class PercentageCalc {
       "単位の追加時は enum にフィールドを追加するだけで拡張できる設計にする。",
       "現場では単位の取り違えが原因の不具合が意外と多い。DB や外部 API とのデータ授受では単位を明示するコメントや定数名をつける習慣をつけること。グラムとキログラムの混在は特に見逃しやすい。",
     ],
-    relatedArticleSlugs: [],
+    relatedArticleSlugs: ["tax-calculation", "percentage-calculation"],
     versionCoverage: {
       java8: "enum に変換係数を持たせる設計は Java 8 から可能。変換メソッドは static メソッドで記述する。",
       java17: "record + switch 式で変換ロジックを簡潔に書ける。var による型推論で記述量も減る。",

@@ -695,7 +695,7 @@ public class CompletableFuturePatternsDemo {
     "仮想スレッドのデバッグでは、従来のスレッドダンプに加えて jcmd の新しいスレッドダンプ形式（JSON）を使うと構造化された情報が得られる。-Djdk.virtualThreadScheduler.parallelism でキャリアスレッド数も調整可能",
     "既存コードへの導入では synchronized を多用しているクラスが pinning の温床になりやすい。移行前に jdk.tracePinnedThreads オプションで固定箇所を洗い出しておくと、想定外の性能劣化を防げる。",
   ],
-  relatedArticleSlugs: ["completable-future-patterns", "atomic-counter"],
+  relatedArticleSlugs: ["thread-basics", "executor-service"],
   versionCoverage: {
     java8: "仮想スレッドは利用不可。ExecutorService と固定サイズのスレッドプールで並行処理を行う。スレッド数はコア数や I/O 比率から手動で見積もる必要がある。",
     java17: "仮想スレッドは利用不可（Java 19 でプレビュー導入）。スレッドプールベースの設計が基本。Java 17 で追加された API はないが、var や record でコードは簡潔になる。",

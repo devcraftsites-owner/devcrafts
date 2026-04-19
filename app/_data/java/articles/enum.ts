@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
     "Enum の == 比較は equals() と同じ結果を返し、null に対して NullPointerException を起こさない点で == のほうが安全。ただし null チェック自体は省略しないこと",
     "保守案件でよく見かけるのが、ordinal() を DB に保存していてメンバーの追加・削除で意味が変わってしまうケース。設計時に ordinal() を永続化に使わないことをコードレビューで確認すること。",
   ],
-  relatedArticleSlugs: ["enum-advanced", "enum-switch-stream"],
+  relatedArticleSlugs: ["stream-filter-map", "null-safe-string"],
   versionCoverage: {
     java8: "switch は文（statement）のみ。case ごとに break が必要で、書き忘れによるフォールスルーバグが起きやすい。var は使えず型を明示する。",
     java17: "switch 式（-> 記法）が使え、break 不要で値を返せる。var による型推論も可能。網羅性チェックがコンパイル時に効く。",

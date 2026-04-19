@@ -28,7 +28,7 @@ export const articles: JavaArticleDetail[] = [
     "1メソッドで複数の振る舞いを検証しすぎると失敗理由が読み取りにくい。正常系と異常系は分けて書く方が保守しやすい",
     "実務では「テストが通っているからリファクタリングして大丈夫」と思ったら、テストの前提が実装と乖離していたケースがある。テストコードも本体コードと同じ視点でレビューに含めること。",
   ],
-  relatedArticleSlugs: [],
+  relatedArticleSlugs: ["exception-chain", "jdbc-basics"],
   versionCoverage: {
     java8: "JUnit 5 自体は Java 8 以上で動作する。テスト対象クラスは通常のクラスで記述し、@ParameterizedTest や @Nested も利用可能。ただし record が使えないためテストデータの表現が冗長になる。",
     java17: "record でテスト対象の Calculator を不変に定義できる。@Nested でテストをグループ化し、@DisplayName で日本語テスト名を付けると構造が明確になる。",

@@ -22,7 +22,7 @@ export const articles: JavaArticleDetail[] = [
       "実務では Stream と for ループの使い分けに迷うことがある。可読性を優先するなら Stream が適しているが、途中でデバッグ出力を挟みたい場合や処理の流れを追いやすくしたい場合は for ループの方が扱いやすい。",
       "null が混在するリストでは filter(Objects::nonNull) を先頭に入れると安全。",
     ],
-    relatedArticleSlugs: ["collection-basics", "sort-grouping", "functional-interface"],
+    relatedArticleSlugs: ["null-safe-string", "enum-basics"],
     versionCoverage: {
       java8: "Stream API は Java 8 から使用可能。リスト生成は Arrays.asList、終端操作は collect(Collectors.toList()) が必須。",
       java17: "List.of で不変リスト初期化、toList() で collect 不要に。record とメソッド参照で記述が簡潔になる。",

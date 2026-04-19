@@ -22,7 +22,7 @@ export const articles: JavaArticleDetail[] = [
       "Young Generation のサイズが小さすぎると Minor GC が頻発し、オブジェクトが早期に Old Generation へ昇格して Full GC を招く",
       "GC ログの出力形式は Java 8 以前（-XX:+PrintGCDetails）と Java 9 以降（-Xlog:gc*）で異なる。バージョンに応じたオプションを確認すること",
     ],
-    relatedArticleSlugs: ["gc-efficiency", "jvm-options", "performance-basics"],
+    relatedArticleSlugs: ["gc-efficiency", "jvm-options"],
     versionCoverage: {
       java8: "デフォルト GC は Parallel GC。メモリ状態の取得は Runtime API で行い、GC ログは -XX:+PrintGCDetails で出力する。finalize() がまだ一般的に使われている。",
       java17: "デフォルト GC は G1GC（Java 9 から）。GC ログは -Xlog:gc* に統一。record でメモリ状態を不変オブジェクトとして扱え、Cleaner が finalize() の代替として定着。",
@@ -158,7 +158,7 @@ public class GcBasicDemo {
       "Metaspace が枯渇すると Full GC が発生してメタデータを回収しようとする。ClassLoader がリークしているとクラス情報が蓄積し続け、Metaspace の枯渇が繰り返される。-XX:MaxMetaspaceSize=256m のように上限を設定しておくことで、Metaspace が無制限に拡大して物理メモリを圧迫する事態を防げる。hot-reload が可能なアプリケーションサーバーでの再デプロイ時は特に注意が必要",
       "G1GC の -XX:MaxGCPauseMillis は「目標」であり「保証」ではない。G1GC は目標に近づくよう Young 世代サイズを動的に調整するが、Old Generation が逼迫している場合は目標を超えた Full GC が発生する。低レイテンシが最優先なら ZGC（-XX:+UseZGC）への切り替えを検討すること。ZGC は 1ms 未満の停止を目指すが、スループットは G1GC より若干低下する場合がある",
     ],
-    relatedArticleSlugs: ["gc-basics", "jvm-options", "performance-basics"],
+    relatedArticleSlugs: ["gc-basics", "jvm-options"],
     versionCoverage: {
       java8: "WeakHashMap や WeakReference は Java 1.2 から利用可能。var が使えないため型を明示する必要がある。デフォルト GC は Parallel GC で Stop-The-World が長くなりやすく、Full GC 対策が特に重要だった時代。",
       java17: "var による型推論で WeakReference 周りのコードが簡潔になる。record で計測結果を不変オブジェクトとして扱える。G1GC がデフォルトになり MaxGCPauseMillis による停止時間の制御が現実的になった。",
@@ -214,7 +214,7 @@ if (!"OK".equals(snap.level())) {
       { name: "Guava Cache", whenToUse: "CacheBuilder の宣言的な API で TTL・サイズ上限・統計情報付きのキャッシュを手軽に構築したいとき。", tradeoff: "Caffeine に比べて性能面で劣る。Guava 全体の依存を持ち込むことになる。" },
     ],
     faq: [
-      { question: "WeakReference と SoftReference はどう使い分けますか。", answer: "キャッシュには SoftReference が適しています。OOM 直前まで保持されるためヒット率が保たれます。WeakReference は次の GC で即回収されるため、オブジェクトの生死追跡やキャノニカルマッピングに向いています。" },
+      { question: "WeakReference と SoftReference はどう使い分けますか。", answer: "キャッシュには SoftReference が適しています。メモリに余裕がある間は保持されるためヒット率を維持しやすい傾向がありますが、解放タイミングは JVM 実装依存のため保証はありません。WeakReference は次の GC で即回収されるため、オブジェクトの生死追跡やキャノニカルマッピングに向いています。" },
       { question: "WeakHashMap のキーにリテラル文字列を使っても大丈夫ですか。", answer: "推奨しません。リテラル文字列は String Pool に強参照が残るため GC で回収されず、WeakHashMap の利点が失われます。別の型のオブジェクトをキーにするか、new String() でインターンされないインスタンスを生成してください。" },
       { question: "Full GC が頻発しているかどうかはどう調べますか。", answer: "GC ログ（-Xlog:gc*）を有効にし、Full GC の出現頻度と停止時間を確認します。VisualVM や GCViewer でログをグラフ化すると傾向がつかみやすくなります。Full GC 直後に Old Generation の使用率がほとんど減っていない場合はメモリリークを疑ってください。" },
       { question: "G1GC の -XX:MaxGCPauseMillis を小さく設定すれば Full GC は防げますか。", answer: "防げるとは限りません。MaxGCPauseMillis は G1GC が目標とする停止時間であり保証ではありません。Old Generation が逼迫するとこの目標を超えた Full GC が発生します。停止時間より先にメモリリークや Humongous オブジェクトの問題を解消することが先決です。" },
@@ -438,7 +438,7 @@ public class FullGcPreventionPatterns {
       "ZGC は低レイテンシに優れるが、スループット重視の大量バッチ処理では G1GC のほうが適する場合がある。ワークロードに応じた選択が必要",
       "実務では -Xmx が設定されていないまま本番稼働し、ヒープをデフォルト（物理メモリの1/4）のまま使っていたケースがある。アプリの起動スクリプトには必ず -Xmx を明示し、サービスのメモリ要件から逆算して設定すること。",
     ],
-    relatedArticleSlugs: ["gc-basics", "gc-efficiency", "jvm-options-version-diff", "performance-basics"],
+    relatedArticleSlugs: ["gc-basics", "gc-efficiency", "jvm-options-version-diff"],
     versionCoverage: {
       java8: "デフォルト GC は Parallel GC。GC ログは -XX:+PrintGCDetails で出力。ManagementFactory は利用可能だが、import にパッケージ名を完全修飾で書くケースが多い。",
       java17: "デフォルト GC は G1GC。GC ログは -Xlog:gc* に統一。var と import 文の整理で ManagementFactory 周りのコードが読みやすくなる。ZGC が本番利用可能。",
@@ -559,7 +559,7 @@ public class JvmOptionsDemo {
       "-XX:+PrintGCDetails / -XX:+PrintGCDateStamps は Java 9 で廃止。代替は -Xlog:gc*:file=gc.log:time,uptime,level,tags で、同等以上の情報が得られる",
       "-XX:+UseContainerSupport は Java 10 からデフォルト有効で cgroup のメモリ上限を認識するが、-Xmx を明示指定するとコンテナ自動計算は無効になる。両方書いた場合は -Xmx が優先される",
       "ZGC は Java 15 で本番対応、Java 21 で Generational ZGC に進化した。Java 8/11 環境への ZGC 設定のバックポートはできないため、移行後のバージョン確認が必須",
-      "Java バージョンアップ後に「GC ログが空」「Unrecognized VM option 警告」が出る原因の多くは古いオプションの残留。移行前に現行の起動スクリプトを全オプション列挙し、本記事の変更一覧と突き合わせて棚卸しすること。",
+      "Java バージョンアップ後に「GC ログが空」「Unrecognized VM option 警告」が出る原因の多くは古いオプションの残留。移行前に現行の起動スクリプトの全オプションを洗い出し、本記事の変更一覧と照合して廃止・変更分を特定すること。",
     ],
     relatedArticleSlugs: ["jvm-options", "gc-basics", "gc-efficiency"],
     versionCoverage: {

@@ -195,7 +195,7 @@ public class MailSender {
     "ステータスコード 2xx 以外をエラーとして扱う場合、HttpClient は例外を投げないため自分で判定ロジックを書く必要がある",
     "実務では外部 API のタイムアウトを設定していないコードを保守案件でよく見かける。外部 API 呼び出しにはconnectTimeout と request timeout を必ず設定し、値は API の SLA を参考に決めること。",
   ],
-  relatedArticleSlugs: ["httpurlconnection", "http-socket-raw", "mail-send"],
+  relatedArticleSlugs: ["json-parsing", "exception-chain"],
   versionCoverage: {
     java8: "HttpClient は使用不可。HttpURLConnection で GET/POST を手動で組み立てる必要がある。ストリームの読み書きが冗長になる。",
     java17: "HttpClient のビルダーパターンと var を組み合わせて簡潔に記述できる。同期送信が基本パターン。",

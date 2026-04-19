@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
       "MIME エンコーダーは76文字ごとに改行を挿入する。HTTP ヘッダーや JSON の値に使うと改行が混入して不具合の原因になるため、用途に応じてエンコーダーを選ぶこと",
       "実務では URL セーフ Base64 と標準 Base64 を混在させて「デコードできない」という問題が起きやすい。エンコード側と受信側の仕様を一緒に決め、コードにコメントで使用するバリアントを明記しておくこと。",
     ],
-    relatedArticleSlugs: ["zip-gzip", "aes-encryption"],
+    relatedArticleSlugs: ["password-hashing", "json-parsing"],
     versionCoverage: {
       java8: "java.util.Base64 が追加され、標準・URL セーフ・MIME の3方式が使える。型は明示的に宣言する必要があり、var は使えない。",
       java17: "API 自体は Java 8 と同じだが、var による型推論と record で結果をまとめて返すコードが書ける。テキストブロックとの組み合わせも自然。",

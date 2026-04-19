@@ -24,7 +24,7 @@ export const articles: JavaArticleDetail[] = [
     "join() にタイムアウトを設定しないと、相手スレッドが終了しない限りメインスレッドが永久にブロックされる",
     "実務では run() を直接呼ぶ誤りや、スレッド名を設定しないためスレッドダンプで特定できないケースが多い。命名と start/join の基本を最初に押さえておくと、後のデバッグが楽になる。",
   ],
-  relatedArticleSlugs: ["synchronized-basics", "executor-service"],
+  relatedArticleSlugs: ["executor-service", "virtual-threads"],
   versionCoverage: {
     java8: "Runnable の匿名クラスかラムダ式で記述。Thread の基本 API は Java 1.0 から変わらず使える。",
     java17: "var による型推論と record で Runnable を実装するパターンが加わり、コードが簡潔になる。",
@@ -802,7 +802,7 @@ public class DeadlockDetectionDemo {
     "submit() の戻り値（Future）を握りつぶすと、タスク内の例外が検知されない。少なくとも Future.get() で例外の有無を確認する",
     "実務では shutdown() の呼び忘れでアプリが終了しない問題や、newCachedThreadPool に大量タスクを投入して OOM を起こすケースがある。プール種別の選択とシャットダウン処理は実装チェックリストに入れておくこと。",
   ],
-  relatedArticleSlugs: ["thread-basics", "thread-local"],
+  relatedArticleSlugs: ["thread-basics", "virtual-threads"],
   versionCoverage: {
     java8: "ExecutorService は Java 5 から利用可能。Callable を匿名クラスで書く必要があり、コードが冗長になる。",
     java17: "ラムダ式 + var + record で簡潔に記述可能。record でタスク情報を保持する設計パターンが使える。",

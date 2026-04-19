@@ -54,7 +54,7 @@ switch (result) {
     { name: "JSR 352（JBatch）", whenToUse: "Jakarta EE 環境でバッチを標準仕様に沿って実装する場合。", tradeoff: "実装ランタイムに依存する。SE 環境では追加設定が必要。" },
   ],
   faq: [
-    { question: "BatchJob のメソッドに戻り値を持たせるべきですか。", answer: "execute() は ExitCode を返す設計が実用的です。initialize() と terminate() は void で十分です。" },
+    { question: "BatchJob のメソッドに戻り値を持たせるべきですか。", answer: "execute() は成否を呼び出し元に伝える必要があるため ExitCode を返す設計が実用的です。initialize() と terminate() はリソースの確保・解放が主目的で結果を返す必然性がないため void で十分です。失敗時は例外を投げて呼び出し元に処理を委ねます。" },
     { question: "JobContext は Map で実装して問題ありませんか。", answer: "小規模なら HashMap で十分です。キー名の定数化と取得時のキャストをラッパーメソッドに集約すると保守しやすくなります。" },
     { question: "前処理と後処理は本当に分ける必要がありますか。", answer: "前処理でファイル確認やDB接続確認をすることで、本処理前にエラーを検知できます。後処理はリソース解放の保証に有用です。" },
   ],
@@ -141,7 +141,7 @@ public class BatchFrameworkDesign {
   version: "Java 8",
   tags: ["バッチ", "CSV", "前処理", "本処理", "後処理", "バリデーション", "ジョブマネージャ", "exitコード", "リラン", "監視"],
   apiNames: ["BufferedReader", "FileReader", "File", "ArrayList", "String.split", "System.exit"],
-  description: "BatchJob インターフェースを CsvImportJob で実装し、3フェーズ分離・ジョブマネージャ連携・exit コード・リラン/リカバリ設計・HA クラスタ制御・監視ログ出力を Java 8/17/21 対応で解説する。",
+  description: "BatchJob インターフェースを CsvImportJob で実装し、前処理・本処理・後処理の3段階構造・ジョブマネージャ連携・exit コード・リラン設計・HA クラスタ制御・監視ログ出力を Java 8/17/21 対応で解説する。",
   lead: "バッチ処理の設計で最も基本的かつ重要なのは、前処理・本処理・後処理の責務を明確に分離することです。前処理で入力ファイルの存在確認や形式チェックを済ませておけば、本処理で初歩的なエラーに悩まされることはありません。後処理で処理件数やエラー件数のサマリを出力すれば、運用担当者が実行結果を即座に判断できます。\n\n近年開発されるシステムでは Spring Batch のようなフレームワークを採用するケースが増えていますが、金融・製造・物流の基幹系や、長年稼働してきたレガシー環境では JP1・Hinemos・TWS などのジョブマネージャによるスケジューリングが前提になっていることが多く、「コマンドラインで起動できる JAR を用意して終了コードで正否を返す」というシンプルな構成が今も広く使われています。この構成では、終了コード・リラン/リカバリ設計・HA クラスタでの二重起動防止・監視システムへのログ連携が、フレームワークが提供してくれない分だけ自前で考慮する必要があります。BatchJob インターフェースを CSV 取込ジョブとして実装し、入力ファイルの存在確認（前処理）、1行ずつの読込とバリデーション（本処理）、処理結果のサマリ出力と System.exit（後処理）を具体的なコードで示した。",
   useCases: [
     "取引先から受領した CSV ファイルを日次バッチで取り込み、バリデーション結果をログに出力する",
@@ -160,7 +160,7 @@ public class BatchFrameworkDesign {
     "監視システム（Zabbix・Datadog・SIEM 等）でバッチの異常を検知するには、ログに一定のキーワードパターンが必要になる。ERROR や FATAL のプレフィックスを統一し、ジョブ名・処理件数・終了コードを必ず含めること。標準出力への println だけでは監視エージェントに拾われないことがある",
     "バッチの実行時間に業務上の制限（例：夜間ウィンドウ 23:00〜05:00 の 6 時間以内）がある場合、事前にデータ件数 × 1レコードあたりの処理時間を見積もること。想定ヒープサイズは「同時保持するデータ行数 × 1行あたりのオブジェクトサイズ」で粗く計算し、-Xmx で上限を明示すること。メモリ不足は OutOfMemoryError として現れるが、実行時間超過はジョブマネージャのタイムアウト強制終了となりログが残らないこともある",
   ],
-  relatedArticleSlugs: ["batch-framework-design", "batch-properties-config"],
+  relatedArticleSlugs: ["exception-chain", "junit5-basics"],
   versionCoverage: {
     java8: "BufferedReader + FileReader の組み合わせで1行ずつ読み込む。try-with-resources でリソース管理する。System.exit() で終了コードを返す。",
     java17: "Files.lines() で読込がシンプルになる。var でローカル変数の型宣言を省略できる。",

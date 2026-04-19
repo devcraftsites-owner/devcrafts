@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
       "リフレクションで private コンストラクタを呼び出されると Singleton が壊れる。Enum Singleton はこの攻撃にも耐性がある",
       "実務で見かける誤実装の多くは「volatile なし双重チェック」か「static フィールドだから安全と思ってのスレッド安全性の見落とし」。Singleton を新規実装する場合は Holder パターンか Enum Singleton を選ぶのが最も安全。",
     ],
-    relatedArticleSlugs: ["factory-method"],
+    relatedArticleSlugs: ["builder-pattern"],
     versionCoverage: {
       java8: "Holder パターンと Enum Singleton が基本。var が使えないため getInstance() の戻り値を明示的に型宣言する。",
       java17: "var による型推論で呼び出しコードが簡潔になる。record と組み合わせた設定値の保持も選択肢に入る。",
@@ -402,7 +402,7 @@ String desc = switch (product) {
       "Lombok の @Builder は便利だが、生成されるコードが見えにくい。チーム内で Lombok の採否が決まっていない場合は手書きの Builder から始めるほうが安全",
       "実務では引数の順序を取り違えてもコンパイルが通るコンストラクタが多く残っている。「String が3つ並んでいる」「null を渡している」といった箇所を見つけたら Builder への置き換えを検討すること。",
     ],
-    relatedArticleSlugs: ["factory-method", "prototype-pattern"],
+    relatedArticleSlugs: ["singleton-pattern"],
     versionCoverage: {
       java8: "Builder クラスのフィールドとメソッドを手書きする。var が使えないため、メソッドチェーンの中間変数にも型宣言が必要。",
       java17: "var でメソッドチェーンの記述が簡潔になる。生成対象を record にすれば equals・toString が自動生成される。",

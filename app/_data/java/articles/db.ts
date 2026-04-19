@@ -23,7 +23,7 @@ export const articles: JavaArticleDetail[] = [
     "ResultSet のカラム取得で列名と型を間違えると実行時例外になる。getInt で VARCHAR 列を取ると ClassCastException 相当のエラーになるため、カラム定義と型メソッドの対応に注意する",
     "保守案件で JDBC を直接使っているコードを読むとき、接続のclose漏れがよく見つかる。Connection プールを使っていない古いコードでは特に、finally ブロックの close() が例外で届かないパターンに注意すること。",
   ],
-  relatedArticleSlugs: ["prepared-statements", "jdbc-transactions", "db-atomic-counter"],
+  relatedArticleSlugs: ["exception-chain", "junit5-basics"],
   versionCoverage: {
     java8: "try-with-resources で Connection と Statement を管理する基本形は Java 7 以降同じ。型宣言は明示的に書く必要がある。",
     java17: "var による型推論とテキストブロック（\"\"\"）で SQL を見やすく記述できる。record で行データを型安全に保持する設計が自然に書ける。",
@@ -67,7 +67,7 @@ switch (findByDept(conn, "開発")) {
     { name: "MyBatis", whenToUse: "SQL を XML やアノテーションで管理し、マッピングを自動化したい場合。", tradeoff: "SQL の可読性は高いが、設定ファイルと学習コストが増える。" },
   ],
   faq: [
-    { question: "DriverManager と DataSource はどちらを使うべきですか？", answer: "本番ではコネクションプーリング付きの DataSource が推奨です。DriverManager は学習やツール用途に向いています。" },
+    { question: "DriverManager と DataSource はどちらを使うべきですか？", answer: "本番環境では HikariCP などコネクションプール付きの DataSource を使います。DriverManager は接続のたびに TCP ハンドシェイクと DB 認証が発生するため、高頻度アクセスでは性能劣化の原因になります。DriverManager は学習目的や単発ツールのみに留めてください。" },
     { question: "ResultSet のカラムはインデックスと名前のどちらで取得すべきですか？", answer: "可読性と保守性の観点から列名指定（getString(\"name\")）が安全です。列順の変更に影響されません。" },
     { question: "H2 以外の DB で試すにはどうすればよいですか？", answer: "対象 DB の JDBC ドライバを CLASSPATH に追加し、接続文字列・ユーザー・パスワードを変更するだけです。" },
   ],
