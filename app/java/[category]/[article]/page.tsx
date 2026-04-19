@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { JavaArticlePage } from "../../../_components/JavaArticlePage"
-import { getJavaArticle, getJavaCategory, JAVA_ARTICLES } from "../../../_data/java"
+import { getJavaArticle, getJavaCategory, isPublishedArticle, JAVA_ARTICLES } from "../../../_data/java"
 
 type ArticlePageProps = {
   params: Promise<{
@@ -29,6 +29,9 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     title: entry.title,
     description: entry.description,
     alternates: { canonical: "./" },
+    ...(!isPublishedArticle(entry.slug) && {
+      robots: { index: false, follow: false },
+    }),
   }
 }
 

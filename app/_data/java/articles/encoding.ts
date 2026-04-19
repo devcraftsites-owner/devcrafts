@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["Base64", "エンコード", "URLセーフ", "バイナリ変換"],
     apiNames: ["Base64.getEncoder", "Base64.getDecoder", "Base64.getUrlEncoder", "Base64.getUrlDecoder", "StandardCharsets.UTF_8"],
     description: "Java 標準 API の Base64 クラスで文字列・バイナリ・URL セーフエンコードを実装する方法を、外部ライブラリ不要で Java 8/17/21 対応のバージョン差分付きで解説する。",
-    lead: "Base64 エンコードは、メール添付・REST API のトークン受け渡し・画像のインライン埋め込みなど、バイナリデータをテキストとして安全にやり取りする場面で頻繁に使われます。Java 8 以降は java.util.Base64 が標準で用意されており、外部ライブラリなしで3種類のエンコード方式（標準・URL セーフ・MIME）を使い分けることができます。この記事では、文字列の往復変換、URL に含めても壊れない URL セーフ Base64、バイナリデータの変換といった実務で必要になるパターンを整理します。パディングの有無による挙動の違いや、文字コードの指定を忘れたときに起きる問題など、初見で引っかかりやすいポイントも取り上げます。",
+    lead: "Base64 エンコードは、メール添付・REST API のトークン受け渡し・画像のインライン埋め込みなど、バイナリデータをテキストとして安全にやり取りする場面で頻繁に使われます。Java 8 以降は java.util.Base64 が標準で用意されており、外部ライブラリなしで3種類のエンコード方式（標準・URL セーフ・MIME）を使い分けることができます。文字列の往復変換、URL に含めても壊れない URL セーフ Base64、バイナリデータの変換といった実務で必要になるパターンを整理した。パディングの有無による挙動の違いや、文字コードの指定を忘れたときに起きる問題など、初見で引っかかりやすいポイントも取り上げる。",
     useCases: [
       "REST API の認証ヘッダーにユーザー名とパスワードを Base64 エンコードして Basic 認証トークンを組み立てる",
       "アップロードされた画像ファイルを Base64 文字列に変換し、JSON レスポンスにインラインで埋め込む",
@@ -21,12 +21,13 @@ export const articles: JavaArticleDetail[] = [
       "URL セーフ Base64 の withoutPadding() を使うと末尾の = が省略される。デコード側が標準デコーダーだとパディング不足でエラーになるため、エンコーダーとデコーダーの組み合わせを揃える必要がある",
       "Base64 はエンコーディングであって暗号化ではない。秘密情報を Base64 でエンコードしただけでは保護にならない。機密データには AES 等の暗号化を併用すること",
       "MIME エンコーダーは76文字ごとに改行を挿入する。HTTP ヘッダーや JSON の値に使うと改行が混入して不具合の原因になるため、用途に応じてエンコーダーを選ぶこと",
+      "実務では URL セーフ Base64 と標準 Base64 を混在させて「デコードできない」という問題が起きやすい。エンコード側と受信側の仕様を一緒に決め、コードにコメントで使用するバリアントを明記しておくこと。",
     ],
     relatedArticleSlugs: ["zip-gzip", "aes-encryption"],
     versionCoverage: {
       java8: "java.util.Base64 が追加され、標準・URL セーフ・MIME の3方式が使える。型は明示的に宣言する必要があり、var は使えない。",
       java17: "API 自体は Java 8 と同じだが、var による型推論と record で結果をまとめて返すコードが書ける。テキストブロックとの組み合わせも自然。",
-      java21: "sealed interface と switch パターンマッチングで、エンコード方式の分岐を型安全に表現できる。API の本質的な変更はない。",
+      java21: "API 自体は変わらないが、switch 式 + enum で用途別のエンコーダー選択が簡潔に書ける。Virtual Thread を使えば複数ファイルの並列エンコードも容易になる。",
       java8Code: `// Java 8: 型を明示的に宣言してエンコード
 String text = "Hello, Base64!";
 byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
@@ -39,15 +40,19 @@ var bytes = text.getBytes(StandardCharsets.UTF_8);
 var encoded = Base64.getEncoder().encodeToString(bytes);
 var decoded = new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
 var result = new EncodingResult(text, encoded, decoded);`,
-      java21Code: `// Java 21: sealed interface + switch でモード分岐
-sealed interface Base64Mode {
-    record Standard() implements Base64Mode {}
-    record UrlSafe()  implements Base64Mode {}
-}
-String encoded = switch (mode) {
-    case Base64Mode.Standard s -> Base64.getEncoder().encodeToString(bytes);
-    case Base64Mode.UrlSafe u  -> Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-};`,
+      java21Code: `// Java 21: enum + switch 式で用途別エンコーダーを選択
+enum Base64Mode { STANDARD, URL_SAFE, MIME }
+Base64.Encoder encoder = switch (mode) {
+    case STANDARD -> Base64.getEncoder();
+    case URL_SAFE -> Base64.getUrlEncoder().withoutPadding();
+    case MIME     -> Base64.getMimeEncoder();
+};
+String encoded = encoder.encodeToString(bytes);
+// Virtual Thread で複数ファイルを並列エンコードする場合
+try (var exec = Executors.newVirtualThreadPerTaskExecutor()) {
+    var futures = filePaths.stream()
+        .map(p -> exec.submit(() -> encode(p))).toList();
+}`,
     },
     libraryComparison: [
       { name: "標準 API（java.util.Base64）", whenToUse: "文字列・バイナリ・URL セーフの3パターンで十分な場合。依存ゼロで Java 8 以降どの環境でも動く。", tradeoff: "ストリーミングエンコードは wrap メソッドで可能だが、大容量データの分割処理は自前で管理する必要がある。" },

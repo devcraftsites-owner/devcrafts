@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["null安全", "NullPointerException", "Optional", "isBlank"],
     apiNames: ["Objects.toString", "String.isBlank", "String.isEmpty", "Optional.ofNullable"],
     description: "Java で文字列の null・空文字・空白を安全に扱うための実装パターンを外部ライブラリ不要の Pure Java で Java 8/17/21 対応で整理する。",
-    lead: "Java の文字列処理で最も頻繁に遭遇するトラブルが NullPointerException です。データベースから取得した値、外部 API のレスポンス、画面入力のパラメータなど、null が紛れ込む経路は多岐にわたります。加えて、空文字 \"\" とスペースだけの文字列 \"   \" を区別すべき場面も少なくありません。この記事では、Objects.toString によるデフォルト値の設定、定数を左辺に置く equals の書き方、Java 11 以降の isBlank と isEmpty の使い分け、Optional を活用したチェーン処理といった実装パターンを整理します。Java 8 で使える方法から Java 21 の switch 式での null ハンドリングまで、バージョンごとの書き方の違いも押さえます。",
+    lead: "Java の文字列処理で最も頻繁に遭遇するトラブルが NullPointerException です。データベースから取得した値、外部 API のレスポンス、画面入力のパラメータなど、null が紛れ込む経路は多岐にわたります。加えて、空文字 \"\" とスペースだけの文字列 \"   \" を区別すべき場面も少なくありません。Objects.toString によるデフォルト値の設定、定数を左辺に置く equals の書き方、Java 11 以降の isBlank と isEmpty の使い分け、Optional を活用したチェーン処理といった実装パターンを整理した。Java 8 から Java 21 の switch 式でのヌルハンドリングまで、バージョンごとの書き方の違いも押さえている。",
     useCases: [
       "CSV 取込時に空欄・空白のみのセルを一律 null として正規化し、後続の業務ロジックで NullPointerException を防ぐ",
       "画面入力のフォームで氏名・住所などの必須項目に対し、null・空文字・全角スペースのみを同一視してバリデーションする",
@@ -21,6 +21,7 @@ export const articles: JavaArticleDetail[] = [
       "isBlank() は Java 11 以降でしか使えない。Java 8 環境では trim().isEmpty() で代用するが、全角スペースは除去されない点に注意",
       "Optional.ofNullable(str).orElse(\"default\") は str が空文字 \"\" のときに \"default\" を返さない。空文字も除外したい場合は filter を挟む必要がある",
       "\"target\".equals(variable) のように定数を左辺に置く書き方は null 安全だが、可読性とのトレードオフがある。チーム内で方針を揃えておくこと",
+      "実務では trim() と isBlank() を混用して「スペースのみの入力」を見逃すケースがある。画面からの入力値はまず trim() してから isEmpty() で空判定する流れをチーム内で統一しておくと安全。",
     ],
     relatedArticleSlugs: ["padding-trim", "regex-basics"],
     versionCoverage: {
@@ -241,7 +242,7 @@ String padded = "0".repeat(Math.max(0, 5 - "42".length())) + "42";`,
     tags: ["正規表現", "Pattern", "Matcher", "バリデーション", "キャプチャグループ"],
     apiNames: ["Pattern.compile", "Matcher.matches", "Matcher.find", "Matcher.group", "Pattern.asMatchPredicate"],
     description: "Java の正規表現（Pattern / Matcher）を使った業務バリデーションと文字列抽出を外部ライブラリ不要の Pure Java で Java 8/17/21 対応で解説する。",
-    lead: "メールアドレス、電話番号、郵便番号など、業務システムではフォーマットの検証が日常的に発生します。Java の正規表現は Pattern と Matcher のペアで扱いますが、Pattern.compile のコストを意識せずにメソッド内で毎回コンパイルしているコードや、matches と find の違いを把握しないまま意図しない判定をしているコードは実務でもよく見かけます。この記事では、Pattern を static final で保持する基本的な設計から、名前付きキャプチャグループによる可読性向上、asMatchPredicate を使った Stream 連携まで、業務で即使える正規表現パターンを整理します。Java 8 の基本的な書き方から Java 21 の sealed interface を使ったバリデーション結果の型安全な表現まで、段階的に扱います。",
+    lead: "メールアドレス、電話番号、郵便番号など、業務システムではフォーマットの検証が日常的に発生します。Java の正規表現は Pattern と Matcher のペアで扱いますが、Pattern.compile のコストを意識せずにメソッド内で毎回コンパイルしているコードや、matches と find の違いを把握しないまま意図しない判定をしているコードは実務でもよく見かけます。Pattern を static final で保持する基本設計から、名前付きキャプチャグループによる可読性向上、asMatchPredicate を使った Stream 連携まで、業務で即使える正規表現パターンを整理した。Java 8 の書き方から Java 21 の switch 式を活用した分岐まで、バージョンごとの書き方も示す。",
     useCases: [
       "会員登録フォームでメールアドレス・電話番号・郵便番号の形式を正規表現で即時バリデーションする",
       "帳票データや自由入力テキストから日付文字列（yyyy/mm/dd）を抽出し、名前付きキャプチャグループで年月日に分解する",
@@ -252,6 +253,7 @@ String padded = "0".repeat(Math.max(0, 5 - "42".length())) + "42";`,
       "matches() は文字列全体がパターンに一致するかを判定する。部分一致を調べたい場合は find() を使う。この違いを間違えると、検証が意図通りに動かない",
       "メールアドレスの正規表現は完全な RFC 準拠にすると非常に複雑になる。業務用途では実用的な範囲に絞り、厳密な検証はサーバー側やメール送信での到達確認に委ねる",
       "日本語の電話番号パターンは市外局番の桁数が地域によって異なる（03- は2桁、045- は3桁など）。単一の正規表現で全パターンをカバーしようとすると保守が難しくなる",
+      "実務では電話番号や郵便番号の仕様が変わっていてパターンが古くなっていたケースに遭遇することがある。正規表現にはコメントで意図を明記し、テストデータに桁数の境界値やハイフンあり・なしを含めておくこと。",
     ],
     relatedArticleSlugs: ["null-safe-string", "half-width-kana"],
     versionCoverage: {

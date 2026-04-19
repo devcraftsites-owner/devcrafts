@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
   tags: ["Thread", "Runnable", "start", "join", "interrupt"],
   apiNames: ["Thread", "Runnable", "Thread.start", "Thread.join", "Thread.interrupt", "Thread.currentThread"],
   description: "Java のスレッド作成パターン3種と start/join/interrupt の使い方を Java 8/17/21 対応で解説する。仮想スレッドにも触れる。",
-  lead: "Java でマルチスレッド処理を書く場面は、バッチの並列実行や非同期ログ出力など、業務システムでも少なくありません。Thread クラスを継承する方法、Runnable を実装する方法、ラムダ式で書く方法の3パターンがあり、どれを選ぶかで保守性やテストしやすさが変わります。この記事では、スレッドの生成から start/join による制御、interrupt による安全な中断まで、実務で必要な基本操作を一通り整理します。Java 21 で導入された仮想スレッド（Virtual Threads）との違いにも触れ、今後のコード選択の判断材料を提供します。",
+  lead: "Java でマルチスレッド処理を書く場面は、バッチの並列実行や非同期ログ出力など、業務システムでも少なくありません。Thread クラスを継承する方法、Runnable を実装する方法、ラムダ式で書く方法の3パターンがあり、どれを選ぶかで保守性やテストしやすさが変わります。スレッドの生成から start/join による制御、interrupt による安全な中断まで実務で必要な基本操作を整理した。Java 21 の仮想スレッド（Virtual Threads）との違いも取り上げるので、今後のコード選択の判断材料にしてほしい。",
   useCases: [
     "バッチ処理で複数ファイルの取り込みを並列化し、全スレッドの完了を join で待ち合わせる",
     "ログ出力や通知送信を別スレッドに委譲し、メイン処理のレスポンスタイムを短縮する",
@@ -22,6 +22,7 @@ export const articles: JavaArticleDetail[] = [
     "Thread を継承するとそのクラスは他のクラスを継承できなくなる。Runnable 実装やラムダ式のほうが拡張性が高い",
     "スレッド名を設定しておかないと、ログやスレッドダンプでの特定が困難になる。new Thread(task, \"worker-1\") のように明示する",
     "join() にタイムアウトを設定しないと、相手スレッドが終了しない限りメインスレッドが永久にブロックされる",
+    "実務では run() を直接呼ぶ誤りや、スレッド名を設定しないためスレッドダンプで特定できないケースが多い。命名と start/join の基本を最初に押さえておくと、後のデバッグが楽になる。",
   ],
   relatedArticleSlugs: ["synchronized-basics", "executor-service"],
   versionCoverage: {
@@ -787,7 +788,7 @@ public class DeadlockDetectionDemo {
   tags: ["ExecutorService", "Future", "スレッドプール", "Callable", "shutdown"],
   apiNames: ["ExecutorService", "Executors.newFixedThreadPool", "Executors.newCachedThreadPool", "Future.get", "ExecutorService.shutdown"],
   description: "Java の ExecutorService によるスレッドプール管理と Future のタイムアウト付き取得を解説する。Java 21 の仮想スレッドプールにも対応。",
-  lead: "Thread を直接 new してタスクごとに生成・破棄すると、スレッド生成のオーバーヘッドが無視できなくなり、同時実行数の制御も困難です。ExecutorService はスレッドプールを管理し、タスクの投入と結果の取得を分離する仕組みを提供します。固定サイズのプール、キャッシュプール、シングルスレッドプールなど用途別のファクトリが用意されており、タスクの結果は Future を通じてタイムアウト付きで取得できます。この記事では、各プールの特性と使い分け、shutdown の正しいタイミング、Future.get のタイムアウト制御までを、業務で頻出するパターンに絞って整理します。",
+  lead: "Thread を直接 new してタスクごとに生成・破棄すると、スレッド生成のオーバーヘッドが無視できなくなり、同時実行数の制御も困難です。ExecutorService はスレッドプールを管理し、タスクの投入と結果の取得を分離する仕組みを提供します。固定サイズのプール、キャッシュプール、シングルスレッドプールなど用途別のファクトリが用意されており、タスクの結果は Future を通じてタイムアウト付きで取得できます。各プールの特性と使い分け、shutdown の正しいタイミング、Future.get のタイムアウト制御まで、業務で頻出するパターンに絞って整理した。",
   useCases: [
     "帳票生成バッチでスレッドプールサイズを固定し、DB コネクション数の上限を超えないよう並列度を制御する",
     "外部 API への並列呼び出しを ExecutorService に投入し、Future.get でタイムアウト付きで結果を集約する",
@@ -799,6 +800,7 @@ public class DeadlockDetectionDemo {
     "Future.get() にタイムアウトを設定しないと、タスクが完了しない限りメインスレッドが永久にブロックされる",
     "ExecutorService を static フィールドに持つ場合、アプリ終了時の shutdown 呼び出しを忘れやすい。ShutdownHook の登録を検討する",
     "submit() の戻り値（Future）を握りつぶすと、タスク内の例外が検知されない。少なくとも Future.get() で例外の有無を確認する",
+    "実務では shutdown() の呼び忘れでアプリが終了しない問題や、newCachedThreadPool に大量タスクを投入して OOM を起こすケースがある。プール種別の選択とシャットダウン処理は実装チェックリストに入れておくこと。",
   ],
   relatedArticleSlugs: ["thread-basics", "thread-local"],
   versionCoverage: {

@@ -286,7 +286,7 @@ public class GcEfficientCache {
     tags: ["JVM", "Xmx", "Xms", "G1GC", "ZGC", "GCログ", "HeapDump"],
     apiNames: ["Runtime.getRuntime", "ManagementFactory.getMemoryMXBean", "ManagementFactory.getGarbageCollectorMXBeans"],
     description: "業務で頻出する JVM オプション（ヒープ設定・GC 選択・ログ出力・ヒープダンプ）を ManagementFactory API での確認方法と合わせて整理する。",
-    lead: "JVM オプションは Java アプリケーションの性能とメモリ管理を左右する重要な設定ですが、種類が多く、どこから手をつけてよいか迷いがちです。開発環境では気にならなくても、本番環境でヒープが足りなくなったり GC の停止時間が問題になったりして初めて調べることも多いでしょう。この記事では、ヒープサイズ（-Xms / -Xmx）、GC アルゴリズムの選択（G1GC / ZGC）、GC ログの出力設定、OOM 時のヒープダンプ取得といった、実務で最も使用頻度の高い JVM オプションに絞って整理します。ManagementFactory API を使って実行中の JVM から設定値を取得・確認する方法も合わせて示します。",
+    lead: "JVM オプションは Java アプリケーションの性能とメモリ管理を左右する重要な設定ですが、種類が多く、どこから手をつけてよいか迷いがちです。開発環境では気にならなくても、本番環境でヒープが足りなくなったり GC の停止時間が問題になったりして初めて調べることも多いでしょう。ヒープサイズ（-Xms / -Xmx）、GC アルゴリズムの選択（G1GC / ZGC）、GC ログの出力設定、OOM 時のヒープダンプ取得といった実務で最も使用頻度の高い JVM オプションに絞って整理した。ManagementFactory API を使って実行中の JVM から設定値を取得・確認する方法も合わせて示す。",
     useCases: [
       "本番デプロイ前に -Xmx / -Xms を適切に設定し、ヒープ不足による OOM を予防する",
       "GC ログ（-Xlog:gc*）を有効にして、性能劣化時に Full GC の発生状況を事後分析する",
@@ -297,12 +297,13 @@ public class GcEfficientCache {
       "-Xms と -Xmx を同じ値にするとヒープの拡張・縮小が起きないため GC の負荷が安定するが、メモリを常時専有するのでコンテナ環境では注意が必要",
       "Java 8 の -XX:+PrintGCDetails は Java 9 以降で廃止され、-Xlog:gc* に置き換わった。バージョンを跨ぐ運用ではオプションの互換性を確認すること",
       "ZGC は低レイテンシに優れるが、スループット重視の大量バッチ処理では G1GC のほうが適する場合がある。ワークロードに応じた選択が必要",
+      "実務では -Xmx が設定されていないまま本番稼働し、ヒープをデフォルト（物理メモリの1/4）のまま使っていたケースがある。アプリの起動スクリプトには必ず -Xmx を明示し、サービスのメモリ要件から逆算して設定すること。",
     ],
     relatedArticleSlugs: ["gc-basics", "gc-efficiency", "jvm-options-version-diff", "performance-basics"],
     versionCoverage: {
       java8: "デフォルト GC は Parallel GC。GC ログは -XX:+PrintGCDetails で出力。ManagementFactory は利用可能だが、import にパッケージ名を完全修飾で書くケースが多い。",
       java17: "デフォルト GC は G1GC。GC ログは -Xlog:gc* に統一。var と import 文の整理で ManagementFactory 周りのコードが読みやすくなる。ZGC が本番利用可能。",
-      java21: "ZGC が Generational ZGC として世代別回収に対応し、さらに低レイテンシに。sealed interface で JVM オプションの分類を型安全に表現できる。",
+      java21: "Generational ZGC（-XX:+UseZGC -XX:+ZGenerational）が標準搭載。record で ManagementFactory のヒープ情報を構造化して取得できる。",
       java8Code: `// Java 8: 完全修飾名での ManagementFactory 利用
 Runtime runtime = Runtime.getRuntime();
 System.out.println("最大ヒープ: " + (runtime.maxMemory() / (1024 * 1024)) + " MB");
@@ -320,17 +321,16 @@ MemoryUsage heapUsage = memBean.getHeapMemoryUsage();
 System.out.println("使用中: " + (heapUsage.getUsed() / (1024 * 1024)) + " MB");
 // GC ログ: -Xlog:gc*
 // デフォルト GC: G1GC`,
-      java21Code: `// Java 21: sealed interface で JVM オプションをカテゴリ別に分類
-sealed interface JvmOption {
-    record HeapOption(String flag, String desc) implements JvmOption {}
-    record GcOption(String flag, String desc) implements JvmOption {}
-    record DiagOption(String flag, String desc) implements JvmOption {}
-}
-String category = switch (option) {
-    case JvmOption.HeapOption o -> "[ヒープ]";
-    case JvmOption.GcOption o   -> "[GC]";
-    case JvmOption.DiagOption o -> "[診断]";
-};`,
+      java21Code: `// Java 21: record でヒープ情報を構造化 + Generational ZGC
+// 起動: -XX:+UseZGC -XX:+ZGenerational
+record HeapMetrics(long usedMB, long maxMB, double usagePct) {}
+var heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+var metrics = new HeapMetrics(
+    heap.getUsed() >> 20,
+    heap.getMax() >> 20,
+    (double) heap.getUsed() / heap.getMax() * 100);
+System.out.printf("ヒープ使用率: %.1f%% (%d/%d MB)%n",
+    metrics.usagePct(), metrics.usedMB(), metrics.maxMB());`,
     },
     libraryComparison: [
       { name: "標準 API（Runtime / ManagementFactory）", whenToUse: "実行中の JVM からヒープ使用量や GC 回数を確認したいとき。外部依存なしですぐに使える。", tradeoff: "履歴の蓄積やアラート通知には対応していない。モニタリングツールとの併用が前提になる。" },
@@ -409,7 +409,7 @@ public class JvmOptionsDemo {
     tags: ["JVM", "移行", "GCログ", "ZGC", "Metaspace", "UseContainerSupport", "Xlog", "廃止オプション"],
     apiNames: ["System.getProperty", "ManagementFactory.getRuntimeMXBean", "ManagementFactory.getGarbageCollectorMXBeans"],
     description: "Java 8→17→21 での JVM オプションの廃止・変更・新設を整理し、GCログ形式変更・デフォルトGC変遷・コンテナ対応・Metaspace 移行を実行可能コードと合わせて解説する。",
-    lead: "Java 8 で書かれた起動スクリプトをそのまま Java 17 や 21 で動かすと、認識されないオプションの警告が出たり、GC ログが出力されなくなったりすることがあります。特に `-XX:+PrintGCDetails`、`-XX:MaxPermSize` のような Java 8 時代の定番オプションは、Java 9 以降で廃止・無効化されています。バージョンアップ後に「GC ログが空だ」「起動時に Unrecognized VM option と出る」と気づいて初めて調べるケースも多いでしょう。この記事では「廃止された」「デフォルトが変わった」「新しく使えるようになった」の 3 軸でバージョン間の差異を整理します。GC ログ形式の Unified JVM Logging への移行、デフォルト GC の Parallel→G1GC→Generational ZGC への変遷、コンテナ環境での `-XX:+UseContainerSupport` の扱い、PermGen 廃止と Metaspace 設定の現在地を、実行して確認できるコード付きでまとめます。起動スクリプトの棚卸しや Java アップグレード作業のチェックリストとして使ってください。",
+    lead: "Java 8 で書かれた起動スクリプトをそのまま Java 17 や 21 で動かすと、認識されないオプションの警告が出たり、GC ログが出力されなくなったりすることがあります。特に `-XX:+PrintGCDetails`、`-XX:MaxPermSize` のような Java 8 時代の定番オプションは、Java 9 以降で廃止・無効化されています。バージョンアップ後に「GC ログが空だ」「起動時に Unrecognized VM option と出る」と気づいて初めて調べるケースも多いでしょう。「廃止された」「デフォルトが変わった」「新しく使えるようになった」の 3 軸でバージョン間の差異を整理した。GC ログ形式の Unified JVM Logging への移行、デフォルト GC の Parallel→G1GC→Generational ZGC への変遷、コンテナ環境での `-XX:+UseContainerSupport` の扱い、PermGen 廃止と Metaspace 設定の現在地を、実行して確認できるコード付きでまとめている。起動スクリプトの棚卸しや Java アップグレード作業のチェックリストとして使ってほしい。",
     useCases: [
       "Java 8 の起動スクリプトを Java 17/21 へ移行する際に、廃止オプションを洗い出して警告やエラーを解消する",
       "Kubernetes や Docker 上のコンテナアプリで -XX:+UseContainerSupport が有効かどうかを確認し、ヒープサイズを適切に設定する",
@@ -420,6 +420,7 @@ public class JvmOptionsDemo {
       "-XX:+PrintGCDetails / -XX:+PrintGCDateStamps は Java 9 で廃止。代替は -Xlog:gc*:file=gc.log:time,uptime,level,tags で、同等以上の情報が得られる",
       "-XX:+UseContainerSupport は Java 10 からデフォルト有効で cgroup のメモリ上限を認識するが、-Xmx を明示指定するとコンテナ自動計算は無効になる。両方書いた場合は -Xmx が優先される",
       "ZGC は Java 15 で本番対応、Java 21 で Generational ZGC に進化した。Java 8/11 環境への ZGC 設定のバックポートはできないため、移行後のバージョン確認が必須",
+      "Java バージョンアップ後に「GC ログが空」「Unrecognized VM option 警告」が出る原因の多くは古いオプションの残留。移行前に現行の起動スクリプトを全オプション列挙し、本記事の変更一覧と突き合わせて棚卸しすること。",
     ],
     relatedArticleSlugs: ["jvm-options", "gc-basics", "gc-efficiency"],
     versionCoverage: {

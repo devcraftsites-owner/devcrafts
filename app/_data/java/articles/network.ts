@@ -182,7 +182,7 @@ public class MailSender {
   tags: ["HttpClient", "HTTP", "GET", "POST", "REST API"],
   apiNames: ["HttpClient", "HttpRequest", "HttpResponse", "URI", "Duration"],
   description: "Java 11 以降の HttpClient で GET/POST リクエストを送信する方法を、タイムアウト設定・ステータスコード判定・非同期処理まで Java 8/17/21 対応で解説する。",
-  lead: "外部 API との連携やマイクロサービス間通信など、業務システムで HTTP リクエストを送信する場面は日常的に発生します。Java 11 で追加された HttpClient は、それまでの HttpURLConnection と比べてビルダーパターンで直感的に組み立てられ、タイムアウト設定やレスポンス処理も簡潔です。ただし Java 8 環境ではこの API が使えないため、HttpURLConnection との使い分けを理解しておく必要があります。この記事では、HttpClient による GET/POST の基本パターンから、ステータスコードの判定、接続・読み取りタイムアウトの設定、Java 21 での非同期処理まで、実務で必要になるポイントを整理します。",
+  lead: "外部 API との連携やマイクロサービス間通信など、業務システムで HTTP リクエストを送信する場面は日常的に発生します。Java 11 で追加された HttpClient は、それまでの HttpURLConnection と比べてビルダーパターンで直感的に組み立てられ、タイムアウト設定やレスポンス処理も簡潔です。ただし Java 8 環境ではこの API が使えないため、HttpURLConnection との使い分けを理解しておく必要があります。HttpClient による GET/POST の基本パターンから、ステータスコードの判定、接続・読み取りタイムアウトの設定、Java 21 での非同期処理まで、実務で必要になるポイントを整理した。",
   useCases: [
     "外部 REST API から JSON データを取得し、業務システムのマスタ情報を更新する",
     "決済サービスの API に POST リクエストで注文情報を送信し、レスポンスを処理する",
@@ -193,6 +193,7 @@ public class MailSender {
     "HttpClient インスタンスはスレッドセーフなので、static final で共有して使い回すのが効率的。リクエストごとに new しない",
     "connectTimeout はサーバーへの接続確立の制限時間、request の timeout はレスポンス全体の制限時間。両方を適切に設定すること",
     "ステータスコード 2xx 以外をエラーとして扱う場合、HttpClient は例外を投げないため自分で判定ロジックを書く必要がある",
+    "実務では外部 API のタイムアウトを設定していないコードを保守案件でよく見かける。外部 API 呼び出しにはconnectTimeout と request timeout を必ず設定し、値は API の SLA を参考に決めること。",
   ],
   relatedArticleSlugs: ["httpurlconnection", "http-socket-raw", "mail-send"],
   versionCoverage: {

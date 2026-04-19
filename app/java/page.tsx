@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import {
-  JAVA_ARTICLE_PREVIEWS,
+  PUBLISHED_ARTICLE_PREVIEWS,
   JAVA_CATEGORIES,
   PRIORITY_JAVA_TOPICS,
   TOOL_ENHANCED_ARTICLE_SLUGS,
@@ -18,8 +18,8 @@ export const metadata: Metadata = {
 
 export default function JavaIndexPage() {
   const featuredCategories = JAVA_CATEGORIES.filter((category) => category.priority === "high").slice(0, 4)
-  const featuredArticles = JAVA_ARTICLE_PREVIEWS.slice(0, 6)
-  const tryEnabledArticles = JAVA_ARTICLE_PREVIEWS.filter((article) => article.toolSlug).slice(0, 4)
+  const featuredArticles = PUBLISHED_ARTICLE_PREVIEWS.slice(0, 6)
+  const tryEnabledArticles = PUBLISHED_ARTICLE_PREVIEWS.filter((article) => article.toolSlug).slice(0, 4)
 
   return (
     <div className="docs-page">
@@ -35,7 +35,7 @@ export default function JavaIndexPage() {
           <Link href={getJavaCategoryHref("dates")} className="action-link">
             日付・時刻
           </Link>
-          <Link href={getJavaArticleHref(JAVA_ARTICLE_PREVIEWS[0])} className="action-link">
+          <Link href={getJavaArticleHref(PUBLISHED_ARTICLE_PREVIEWS[0])} className="action-link">
             営業日計算
           </Link>
         </div>

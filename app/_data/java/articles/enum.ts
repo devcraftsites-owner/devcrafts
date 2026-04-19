@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
   tags: ["Enum", "定数管理", "switch", "values", "valueOf"],
   apiNames: ["Enum", "Enum.values", "Enum.valueOf", "Enum.name", "Enum.ordinal"],
   description: "Java Enum の基本的な定義方法から values・valueOf・name・ordinal の使い分け、switch での分岐パターンまでを Java 8/17/21 対応で解説する。",
-  lead: "業務コードで「状態」や「区分」を扱うとき、文字列定数や int 定数を並べて管理しているプロジェクトは少なくありません。しかし定数が増えるほどタイポや比較ミスが入り込みやすくなり、保守コストが静かに膨らんでいきます。Java の Enum はこうした問題に対する標準的な回答で、型安全な定数グループを定義し、switch 文で網羅性チェックまで得られます。この記事では、Enum の基本的な定義方法から values() による全要素取得、valueOf() による文字列変換、name() と ordinal() の違いと注意点、そして switch 文・switch 式での分岐パターンまでを扱います。Java 8 の従来型 switch と Java 14 以降の switch 式の書き分けも示しながら、現場で迷いやすいポイントを整理します。",
+  lead: "業務コードで「状態」や「区分」を扱うとき、文字列定数や int 定数を並べて管理しているプロジェクトは少なくありません。しかし定数が増えるほどタイポや比較ミスが入り込みやすくなり、保守コストが静かに膨らんでいきます。Java の Enum はこうした問題に対する標準的な回答で、型安全な定数グループを定義し、switch 文で網羅性チェックまで得られます。Enum の基本的な定義方法から values() による全要素取得、valueOf() による文字列変換、name() と ordinal() の違いと注意点、switch 文・switch 式での分岐パターンまで整理した。Java 8 の従来型 switch と Java 14 以降の switch 式の書き分けも示しながら、現場で迷いやすいポイントを押さえる。",
   useCases: [
     "注文ステータス（未処理・処理中・完了・キャンセル）を Enum で定義し、画面表示やバッチ処理の分岐に使う",
     "曜日や休日種別を Enum にまとめ、勤怠管理システムの休日判定ロジックを型安全に記述する",
@@ -21,6 +21,7 @@ export const articles: JavaArticleDetail[] = [
     "ordinal() の値は定義順に依存するため、DB 保存やシリアライズに使うと定義順の変更でデータが壊れる。永続化には name() か明示的なコード値を使うこと",
     "switch 文で Enum を扱う場合、case ラベルに Enum 名だけを書く（Color.RED ではなく RED）。修飾名を書くとコンパイルエラーになる",
     "Enum の == 比較は equals() と同じ結果を返し、null に対して NullPointerException を起こさない点で == のほうが安全。ただし null チェック自体は省略しないこと",
+    "保守案件でよく見かけるのが、ordinal() を DB に保存していてメンバーの追加・削除で意味が変わってしまうケース。設計時に ordinal() を永続化に使わないことをコードレビューで確認すること。",
   ],
   relatedArticleSlugs: ["enum-advanced", "enum-switch-stream"],
   versionCoverage: {

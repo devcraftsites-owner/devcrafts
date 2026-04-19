@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next"
-import { JAVA_CATEGORIES } from "./_data/java"
+import { JAVA_CATEGORIES, isPublishedArticle } from "./_data/java"
 import { JAVA_ARTICLES } from "./_data/java"
 import { TOOLS } from "./_data/tools"
 
@@ -26,10 +26,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date(),
   }))
 
-  const articlePages: MetadataRoute.Sitemap = JAVA_ARTICLES.map((article) => ({
-    url: `${BASE_URL}/java/${article.categorySlug}/${article.slug}/`,
-    lastModified: new Date(),
-  }))
+  const articlePages: MetadataRoute.Sitemap = JAVA_ARTICLES
+    .filter((article) => isPublishedArticle(article.slug))
+    .map((article) => ({
+      url: `${BASE_URL}/java/${article.categorySlug}/${article.slug}/`,
+      lastModified: new Date(),
+    }))
 
   const toolPages: MetadataRoute.Sitemap = TOOLS
     .filter((tool) => tool.status === "ready")

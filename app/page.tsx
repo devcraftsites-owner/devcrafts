@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import {
-  JAVA_ARTICLE_PREVIEWS,
+  PUBLISHED_ARTICLE_PREVIEWS,
   JAVA_CATEGORIES,
   PRIORITY_JAVA_TOPICS,
   getJavaArticleHref,
@@ -19,9 +19,9 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   const featuredCategories = JAVA_CATEGORIES.filter((category) => category.priority === "high")
-  const featuredArticles = JAVA_ARTICLE_PREVIEWS.slice(0, 5)
-  const toolEnhancedArticles = JAVA_ARTICLE_PREVIEWS.filter((article) => article.toolSlug).slice(0, 4)
-  const publishedArticleCount = JAVA_ARTICLE_PREVIEWS.length
+  const featuredArticles = PUBLISHED_ARTICLE_PREVIEWS.slice(0, 5)
+  const toolEnhancedArticles = PUBLISHED_ARTICLE_PREVIEWS.filter((article) => article.toolSlug).slice(0, 4)
+  const publishedArticleCount = PUBLISHED_ARTICLE_PREVIEWS.length
   const toolCount = PRIORITY_TOOLS.length
 
   return (

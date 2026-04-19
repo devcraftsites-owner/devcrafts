@@ -143,7 +143,7 @@ public class LoggingBasicsExample {
     tags: ["例外", "例外チェーン", "getCause", "カスタム例外", "障害調査"],
     apiNames: ["Throwable.getCause", "Exception", "Logger.log"],
     description: "Java の例外チェーンを使ったレイヤー間の例外ラップと原因追跡の実装パターンを、ログ設計も含めて外部ライブラリ不要で Java 8/17/21 対応で解説する。",
-    lead: "業務システムでは、DB 層で発生した SQLException をサービス層で ServiceException にラップし、さらにコントローラー層で適切なエラーレスポンスに変換する、というレイヤードな例外設計が一般的です。このとき、原因例外（cause）を保持しないままラップすると、障害調査で根本原因にたどり着けなくなります。Java の例外チェーン機構は、Throwable のコンストラクタに cause を渡すことで、例外の因果関係をスタックトレースに残す仕組みです。この記事では、カスタム例外の定義方法、cause の正しい渡し方、getCause() でチェーンを辿って原因を特定するコード、そして例外をログに記録する際の注意点を整理します。e.printStackTrace() を使ってはいけない理由や、例外を握りつぶすアンチパターンについても触れます。",
+    lead: "業務システムでは、DB 層で発生した SQLException をサービス層で ServiceException にラップし、さらにコントローラー層で適切なエラーレスポンスに変換する、というレイヤードな例外設計が一般的です。このとき、原因例外（cause）を保持しないままラップすると、障害調査で根本原因にたどり着けなくなります。Java の例外チェーン機構は、Throwable のコンストラクタに cause を渡すことで、例外の因果関係をスタックトレースに残す仕組みです。カスタム例外の定義方法、cause の正しい渡し方、getCause() でチェーンを辿って原因を特定するコード、例外をログに記録する際の注意点を整理した。e.printStackTrace() を使ってはいけない理由や、例外を握りつぶすアンチパターンについても取り上げる。",
     useCases: [
       "DB アクセス層で発生した SQLException を DataAccessException にラップし、サービス層に業務レベルのエラーとして伝播する",
       "障害発生時にログから例外チェーンを辿り、ServiceException → DataAccessException → SQLException という因果関係を追跡する",
@@ -155,12 +155,13 @@ public class LoggingBasicsExample {
       "e.printStackTrace() はログフレームワークを経由しないため、出力先やフォーマットの制御ができない。運用環境では必ず Logger 経由で記録する",
       "getCause() のチェーンが循環することは通常ないが、不正な実装で自分自身を cause にセットすると無限ループになる。ライブラリ内部の例外を再ラップする場合は cause の中身を確認すること",
       "例外クラスを細分化しすぎると catch ブロックが増えて可読性が下がる。レイヤーごとに1〜2種類の例外に集約するのが実務的なバランス",
+      "障害調査で「ログに例外が出ていない」というケースの多くは、catch してメッセージだけ記録し cause を渡していないことが原因。例外をラップするコードには必ずレビューで cause の有無を確認する習慣をつけること。",
     ],
     relatedArticleSlugs: ["logging-basics"],
     versionCoverage: {
       java8: "例外チェーンの仕組み自体は Java 1.4 からあり、Java 8 でも同じように使える。原因追跡のユーティリティは while ループで getCause() を辿る形になる。",
       java17: "record で ExceptionInfo（型名・メッセージ）を定義し、チェーンの情報をリストとして構造化できる。var で変数宣言が簡潔になる。",
-      java21: "sealed interface で例外チェーン中の位置（Top/Wrapper/Root）を型安全に分類し、switch パターンマッチングでラベル付き表示ができる。",
+      java21: "switch 式のパターンマッチングで例外の型に応じた処理を簡潔に分岐できる。record でチェーン情報を構造化して収集するコードが自然に書ける。",
       java8Code: `// Java 8: while ループで例外チェーンを辿る
 Throwable current = exception;
 int depth = 0;
@@ -183,17 +184,15 @@ while (current != null) {
         current.getMessage()));
     current = current.getCause();
 }`,
-      java21Code: `// Java 21: sealed interface でチェーン中の位置を分類
-sealed interface ExLevel {
-    record Top()     implements ExLevel {}
-    record Wrapper() implements ExLevel {}
-    record Root()    implements ExLevel {}
-}
-var label = switch (classifyException(current, depth)) {
-    case ExLevel.Top t     -> "[TOP]  ";
-    case ExLevel.Wrapper w -> "[WRAP] ";
-    case ExLevel.Root r    -> "[ROOT] ";
-};`,
+      java21Code: `// Java 21: switch パターンマッチングで例外の型に応じて処理を分岐
+// (Java 21 から switch で型を直接テストできる)
+String handler = switch (rootCause) {
+    case SQLException e  -> "DB: " + e.getSQLState();
+    case IOException e   -> "IO: " + e.getMessage();
+    case RuntimeException e -> "Runtime: " + e.getMessage();
+    default -> "Unknown: " + rootCause.getClass().getSimpleName();
+};
+logger.log(Level.SEVERE, handler, rootCause);`,
     },
     libraryComparison: [
       { name: "標準 API（Throwable チェーン）", whenToUse: "例外の因果関係を保持してレイヤー間で伝播するだけなら標準の仕組みで十分。追加の依存なしで動作する。", tradeoff: "例外チェーンの解析やフォーマット変換は自前で実装する必要がある。" },

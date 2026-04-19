@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["Singleton", "GoF", "生成パターン", "スレッドセーフ", "enum"],
     apiNames: ["Runtime.getRuntime", "enum", "volatile", "synchronized"],
     description: "Singleton パターンを Java で安全に実装する方法を Eager・Holder・Enum の3方式で比較し、スレッド安全性とシリアライズ耐性を整理する。",
-    lead: "アプリケーション全体でインスタンスを1つだけ保持したい場面は、設定管理やコネクションプール、ロガーなど業務コードの中にも少なくありません。Singleton パターンはその要求に応えるもっとも基本的な設計ですが、正しく実装しないとマルチスレッド環境で複数インスタンスが生まれたり、シリアライズで別オブジェクトが復元されたりといった問題が起きます。この記事では、Eager Initialization・Initialization-on-demand Holder・Enum Singleton の3方式を取り上げ、それぞれのスレッド安全性・遅延初期化・シリアライズ耐性を比較します。double-checked locking が必要になるケースとその落とし穴、Java 標準ライブラリでの Singleton 実例（Runtime.getRuntime）も確認し、実務で迷わない選択基準を示します。",
+    lead: "アプリケーション全体でインスタンスを1つだけ保持したい場面は、設定管理やコネクションプール、ロガーなど業務コードの中にも少なくありません。Singleton パターンはその要求に応えるもっとも基本的な設計ですが、正しく実装しないとマルチスレッド環境で複数インスタンスが生まれたり、シリアライズで別オブジェクトが復元されたりといった問題が起きます。Eager Initialization・Initialization-on-demand Holder・Enum Singleton の3方式を取り上げ、スレッド安全性・遅延初期化・シリアライズ耐性を比較した。double-checked locking が必要になるケースとその落とし穴、Java 標準ライブラリでの Singleton 実例（Runtime.getRuntime）も確認し、実務で迷わない選択基準を示す。",
     useCases: [
       "アプリケーション設定を1つのインスタンスに集約し、どのクラスからも同じ値を参照できるようにする",
       "DB コネクションプールの管理クラスを Singleton にして、接続の生成・破棄を一元管理する",
@@ -21,12 +21,13 @@ export const articles: JavaArticleDetail[] = [
       "Double-Checked Locking では volatile 修飾子が必須。付け忘れると命令の並び替えによって初期化途中のオブジェクトが返る可能性がある",
       "Serializable を implements した Singleton は、デシリアライズ時に新しいインスタンスが生まれる。readResolve() で INSTANCE を返すか、Enum Singleton を使えば回避できる",
       "リフレクションで private コンストラクタを呼び出されると Singleton が壊れる。Enum Singleton はこの攻撃にも耐性がある",
+      "実務で見かける誤実装の多くは「volatile なし双重チェック」か「static フィールドだから安全と思ってのスレッド安全性の見落とし」。Singleton を新規実装する場合は Holder パターンか Enum Singleton を選ぶのが最も安全。",
     ],
     relatedArticleSlugs: ["factory-method"],
     versionCoverage: {
       java8: "Holder パターンと Enum Singleton が基本。var が使えないため getInstance() の戻り値を明示的に型宣言する。",
       java17: "var による型推論で呼び出しコードが簡潔になる。record と組み合わせた設定値の保持も選択肢に入る。",
-      java21: "sealed interface + switch パターンマッチングで Singleton の種別を型安全に分岐でき、設定や初期化方式の切り替えに活用できる。",
+      java21: "Enum Singleton と record を組み合わせると、型安全で不変な設定値オブジェクトを保持する Singleton が自然に書ける。",
       java8Code: `// Java 8: 型を明示して getInstance を呼ぶ
 EagerSingleton s1 = EagerSingleton.getInstance();
 EagerSingleton s2 = EagerSingleton.getInstance();
@@ -39,18 +40,20 @@ var s1 = EagerSingleton.getInstance();
 var s2 = EagerSingleton.getInstance();
 System.out.println(s1 == s2); // true
 
-// Enum Singleton
+// Enum Singleton + record で設定値を構造化
 EnumSingleton.INSTANCE.increment();`,
-      java21Code: `// Java 21: sealed interface + switch で方式を分岐
-sealed interface SingletonType
-        permits SingletonType.Eager, SingletonType.Holder {
-    record Eager(String desc) implements SingletonType {}
-    record Holder(String desc) implements SingletonType {}
+      java21Code: `// Java 21: Enum Singleton + record で設定値を型安全に保持
+enum AppConfig {
+    INSTANCE;
+    record Config(String env, int timeoutSec, boolean debug) {}
+    private Config config = new Config("prod", 30, false);
+
+    public Config getConfig() { return config; }
+    public void updateConfig(Config c) { this.config = c; }
 }
-String info = switch (type) {
-    case SingletonType.Eager(var d) -> "即時: " + d;
-    case SingletonType.Holder(var d) -> "遅延: " + d;
-};`,
+// 呼び出し側: record のコンポーネントで設定値にアクセス
+var cfg = AppConfig.INSTANCE.getConfig();
+System.out.printf("env=%s timeout=%ds%n", cfg.env(), cfg.timeoutSec());`,
     },
     libraryComparison: [
       { name: "標準 API（Enum Singleton / Holder）", whenToUse: "依存なしでスレッド安全かつシリアライズ耐性のある Singleton を実装したいとき。", tradeoff: "DI コンテナを使うプロジェクトでは、フレームワーク側でスコープ管理するほうが自然な場合がある。" },
@@ -386,7 +389,7 @@ String desc = switch (product) {
     tags: ["Builder", "GoF", "生成パターン", "不変オブジェクト", "メソッドチェーン"],
     apiNames: ["StringBuilder", "HttpClient.newBuilder", "ProcessBuilder"],
     description: "Builder パターンで引数過多のコンストラクタを整理し、必須フィールドの強制と不変オブジェクト生成を両立する実装方法を Java 8/17/21 対応で示す。",
-    lead: "コンストラクタの引数が5つ6つと増えていくと、呼び出し側で「何番目の引数が何なのか」が分からなくなります。順序を間違えてもコンパイルが通る型が同じ引数（String が3つ並ぶなど）は特に危険です。Builder パターンは、名前付きメソッドで段階的にフィールドを設定し、最後に build() で不変オブジェクトを生成する構造を作ります。必須フィールドは Builder のコンストラクタで強制し、任意フィールドにはデフォルト値を設定できるため、呼び出し側のコードが自己文書化されます。この記事では HTTP リクエストとメールメッセージを題材に Builder パターンの基本構造を示し、Java 標準ライブラリの StringBuilder や HttpClient.newBuilder との対応関係も確認します。",
+    lead: "コンストラクタの引数が5つ6つと増えていくと、呼び出し側で「何番目の引数が何なのか」が分からなくなります。順序を間違えてもコンパイルが通る型が同じ引数（String が3つ並ぶなど）は特に危険です。Builder パターンは、名前付きメソッドで段階的にフィールドを設定し、最後に build() で不変オブジェクトを生成する構造を作ります。必須フィールドは Builder のコンストラクタで強制し、任意フィールドにはデフォルト値を設定できるため、呼び出し側のコードが自己文書化されます。HTTP リクエストとメールメッセージを題材に Builder パターンの基本構造を示し、Java 標準ライブラリの StringBuilder や HttpClient.newBuilder との対応関係も確認した。",
     useCases: [
       "HTTP リクエストの URL・メソッド・ヘッダー・ボディ・タイムアウトを段階的に設定し、不変のリクエストオブジェクトを生成する",
       "メール送信で宛先（必須）・CC・BCC・件名・本文・添付ファイル（任意）を Builder で組み立てる",
@@ -397,6 +400,7 @@ String desc = switch (product) {
       "必須フィールドの検証は build() メソッド内で行うのが確実。Builder のコンストラクタで強制する方法もあるが、引数が増えると結局テレスコーピングコンストラクタの問題が再発する",
       "Builder パターンはフィールドが4つ以上ある場合に有効。2〜3フィールドならコンストラクタやファクトリーメソッドで十分な場合が多い",
       "Lombok の @Builder は便利だが、生成されるコードが見えにくい。チーム内で Lombok の採否が決まっていない場合は手書きの Builder から始めるほうが安全",
+      "実務では引数の順序を取り違えてもコンパイルが通るコンストラクタが多く残っている。「String が3つ並んでいる」「null を渡している」といった箇所を見つけたら Builder への置き換えを検討すること。",
     ],
     relatedArticleSlugs: ["factory-method", "prototype-pattern"],
     versionCoverage: {

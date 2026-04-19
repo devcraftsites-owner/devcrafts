@@ -1,4 +1,4 @@
-import { JAVA_ARTICLE_PREVIEWS, JAVA_CATEGORIES, PRIORITY_JAVA_TOPICS, getJavaArticleHref, getJavaCategoryHref } from "./java"
+import { PUBLISHED_ARTICLE_PREVIEWS, JAVA_CATEGORIES, PRIORITY_JAVA_TOPICS, getJavaArticleHref, getJavaCategoryHref } from "./java"
 import { PRIORITY_TOOLS, getToolHref } from "./tools"
 
 export type SearchEntryType = "article" | "tool" | "tag" | "api"
@@ -11,7 +11,7 @@ export type SearchEntry = {
   tryAvailable?: boolean
 }
 
-const articleEntries: SearchEntry[] = JAVA_ARTICLE_PREVIEWS.flatMap((article) => [
+const articleEntries: SearchEntry[] = PUBLISHED_ARTICLE_PREVIEWS.flatMap((article) => [
   {
     label: article.title,
     type: "article",

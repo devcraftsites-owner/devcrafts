@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["Stream", "filter", "map"],
     apiNames: ["Stream.filter", "Stream.map"],
     description: "Java の Stream API で filter と map を組み合わせ、業務コードの一覧絞り込みと DTO 変換を実装する方法を Java 8/17/21 対応で解説する。",
-    lead: "業務システムでは、データベースから取得した一覧を条件で絞り込み、画面表示用の DTO に変換する処理が頻繁に発生します。for ループとif文で書くと行数が膨らみ、可読性が下がります。Stream API の filter と map を使えば、データの流れを宣言的に記述でき、意図が伝わりやすいコードになります。この記事では、実務でよく使うパターンを中心に、filter と map の組み合わせ方を整理します。",
+    lead: "業務システムでは、データベースから取得した一覧を条件で絞り込み、画面表示用の DTO に変換する処理が頻繁に発生します。for ループとif文で書くと行数が膨らみ、可読性が下がります。Stream API の filter と map を使えば、データの流れを宣言的に記述でき、意図が伝わりやすいコードになります。実務でよく使うパターンを中心に、filter と map の組み合わせ方を整理した。",
     useCases: [
       "社員一覧から特定部署のメンバーだけを抽出して画面用 DTO に変換する",
       "受注データから未出荷の注文だけを絞り込んで出荷指示リストを作る",
@@ -19,6 +19,7 @@ export const articles: JavaArticleDetail[] = [
     cautions: [
       "Stream は1回しか消費できない。再利用したい場合は Supplier<Stream> を使う。",
       "副作用のある処理（DB更新など）を map 内で行わない。forEach を使う。",
+      "実務では Stream と for ループの使い分けに迷うことがある。可読性を優先するなら Stream が適しているが、途中でデバッグ出力を挟みたい場合や処理の流れを追いやすくしたい場合は for ループの方が扱いやすい。",
       "null が混在するリストでは filter(Objects::nonNull) を先頭に入れると安全。",
     ],
     relatedArticleSlugs: ["collection-basics", "sort-grouping", "functional-interface"],

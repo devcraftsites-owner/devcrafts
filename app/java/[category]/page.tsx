@@ -5,6 +5,7 @@ import {
   getJavaArticlesByCategory,
   getJavaArticleHref,
   getJavaCategory,
+  isPublishedArticle,
   JAVA_CATEGORIES,
 } from "../../_data/java"
 
@@ -47,7 +48,7 @@ export default async function JavaCategoryPage({ params }: CategoryPageProps) {
     notFound()
   }
 
-  const articles = getJavaArticlesByCategory(category.slug)
+  const articles = getJavaArticlesByCategory(category.slug).filter((a) => isPublishedArticle(a.slug))
 
   return (
     <div className="docs-page">
