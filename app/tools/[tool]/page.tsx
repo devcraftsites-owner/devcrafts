@@ -118,7 +118,6 @@ export async function generateMetadata({ params }: ToolPageProps): Promise<Metad
     title: `${entry.name} — ${entry.summary.replace(/。$/, "")}｜ブラウザ完結`.slice(0, 50),
     description,
     alternates: { canonical: "./" },
-    ...(entry.status !== "ready" && { robots: "noindex" }),
   }
 }
 
