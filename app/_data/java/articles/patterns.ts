@@ -2852,7 +2852,7 @@ static MachineState transition(
   tags: ["Strategy", "デザインパターン", "Comparator", "ラムダ式", "振る舞いパターン"],
   apiNames: ["interface", "Comparator", "record", "Arrays.copyOf", "Arrays.sort"],
   description: "Java の Strategy パターンをソートアルゴリズムの切り替えで実装し、Comparator との関係と Java 8/17/21 の違いを外部ライブラリ不要で解説する。",
-  lead: "アルゴリズムをオブジェクトとして切り出し、実行時に差し替えられるようにする。Strategy パターンは Java の Comparator インターフェースそのものであり、最も身近なデザインパターンの1つです。ソートアルゴリズムの切り替え、料金計算ロジックの顧客別カスタマイズ、出力形式の動的変更など、同じ処理を異なるやり方で行いたい場面に適用できます。Java 8 以降はラムダ式やメソッド参照で Strategy を簡潔に定義でき、匿名クラスを書く必要がほぼなくなりました。この記事では、ソートアルゴリズムの差し替えを題材に Context と Strategy の構造を実装し、Comparator を使った実践例、record との組み合わせ、Java 21 の sealed interface でソート仕様を型安全に定義する方法を確認します。",
+  lead: "アルゴリズムをオブジェクトとして切り出し、実行時に差し替えられるようにする。Strategy パターンは Java の Comparator インターフェースそのものであり、最も身近なデザインパターンの1つです。ソートアルゴリズムの切り替え、料金計算ロジックの顧客別カスタマイズ、出力形式の動的変更など、同じ処理を異なるやり方で行いたい場面に適用できます。Java 8 以降はラムダ式やメソッド参照で Strategy を簡潔に定義でき、匿名クラスを書く必要がほぼなくなりました。\n\n実務で効果が出やすいのは、if/switch による条件分岐をロジックの外に追い出せることです。Strategy 実装はそれぞれ独立したクラスやラムダ式になるため単体でテストしやすく、既存コードを変更せずに新しいアルゴリズムを追加できます（オープン・クローズドの原則）。Spring などの DI コンテナと組み合わせると、各 Strategy 実装を Bean として登録し、Map<String, T> 注入で設定キーやリクエスト属性から動的に選択する構成が自然に書けます。\n\nこの記事では、料金計算（通常 / 割引 / 特別会員）を題材に Context と Strategy の基本構造を示し、ラムダ式による簡略化、Comparator を使った実践例、Java 21 の sealed interface でソート仕様を型安全に定義する方法を確認します。",
   useCases: [
     "ソートアルゴリズム（バブル / 選択 / マージ）を実行時に切り替え、データ量に応じた戦略で処理する",
     "顧客種別（一般 / プレミアム / 法人）に応じた料金計算ロジックを Strategy として差し替える",
@@ -2863,6 +2863,8 @@ static MachineState transition(
     "Strategy の切り替えが頻繁に発生する場合、Context の setStrategy を外部から呼ぶ設計だとスレッドセーフティの考慮が必要になる",
     "Strategy パターンと State パターンは構造が似ている。Strategy は外部からの明示的な切り替え、State は内部状態に応じた自動切り替えが基本",
     "ラムダ式で Strategy を定義すると簡潔だが、複雑なロジックはクラスとして分離した方がテストしやすい",
+    "Strategy を選択する条件分岐（if-else や switch）が Context の内部に残ると Strategy 導入の目的が半減する。選択ロジックは Factory メソッドや Map<String, Strategy> に一元化し、新しい Strategy の追加が既存コードの変更を伴わない構造にする",
+    "状態を持たない Strategy 実装はインスタンスを使い回せるためスレッドセーフになる。static final 定数や enum の値として保持しておくと都度 new するコストも避けられる。逆に状態を持つ場合はスコープ（リクエストごと・スレッドごと）を明確にする",
   ],
   relatedArticleSlugs: ["state-pattern", "template-method"],
   versionCoverage: {
@@ -2904,70 +2906,78 @@ static SortStrategy createStrategy(SortSpec spec) {
 }`,
   },
   libraryComparison: [
-    { name: "標準 API（interface + ラムダ式）", whenToUse: "アルゴリズムの種類が少なく、ラムダ式で簡潔に定義できる場面。外部依存なしで完結する。", tradeoff: "アルゴリズムの組み合わせや設定が複雑になると管理コードが増える。" },
+    { name: "標準 API（interface + ラムダ式）", whenToUse: "アルゴリズムの種類が少なく、ラムダ式で簡潔に定義できる場面。外部依存なしで完結する。", tradeoff: "アルゴリズムの組み合わせや設定が複雑になると管理コードが増える。状態なし実装は static final に切り出すと使い回しやすい。" },
     { name: "Comparator チェーン", whenToUse: "ソートの多軸条件を thenComparing で連結する場合。標準 API で宣言的に書ける。", tradeoff: "ソート以外の戦略切り替えには適用できない。" },
     { name: "Function / BiFunction", whenToUse: "汎用的な関数型インターフェースで戦略を受け渡す場合。専用の Strategy interface を定義するほどでもない場面。", tradeoff: "引数・戻り値の意味が型から読み取りにくく、専用 interface の方がドキュメント性が高い。" },
+    { name: "Spring DI（Map<String, T> 注入）", whenToUse: "Spring Boot 環境で Strategy 実装クラスを Bean として管理し、リクエスト属性や設定値をキーに動的に選択したい場合。", tradeoff: "Spring 依存になるが、@Autowired で Map<String, PricingStrategy> を受け取ると Bean 名から実装を get するだけで選択が完結し、新しい Strategy を追加しても注入先のコードを変更せずに済む。" },
   ],
   faq: [
     { question: "Strategy パターンと Template Method パターンの違いは何ですか。", answer: "Strategy はアルゴリズム全体をオブジェクトとして差し替えます。Template Method は処理の骨格を親クラスに固定し、ステップの一部をサブクラスでカスタマイズします。委譲か継承かの違いです。" },
-    { question: "ラムダ式で定義した Strategy をテストするにはどうすればよいですか。", answer: "ラムダ式を static メソッドや定数フィールドに抽出し、そのメソッド/フィールドに対してテストを書きます。匿名のラムダ式を直接テストするのは困難です。" },
-    { question: "Strategy の選択をどこで行うべきですか。", answer: "Factory メソッドや設定ファイルから Strategy を選択するのが一般的です。Context 内にハードコードすると切り替えが困難になります。" },
+    { question: "ラムダ式で定義した Strategy をテストするにはどうすればよいですか。", answer: "ラムダ式を static final 定数やメソッドに抽出し、そのフィールド・メソッドに対してテストを書きます。匿名ラムダのままでは呼び出し元のテストを通じてしか検証できません。" },
+    { question: "Spring DI 環境で複数の Strategy 実装を動的に切り替えるにはどうしますか。", answer: "各実装に @Component を付けて登録し、@Autowired で Map<String, PricingStrategy> を受け取ると Bean 名をキーに選択できます。Map.get(customerType) だけで選択が完結し、新しい Strategy を追加しても注入先のコードを変更する必要がありません。" },
   ],
   codeTitle: "StrategyPatternDemo.java",
-  codeSample: `import java.util.ArrayList;
-import java.util.Arrays;
+  codeSample: `import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Map;
 
 public class StrategyPatternDemo {
 
-    interface SortStrategy {
-        int[] sort(int[] data);
+    // ① Strategy インターフェース（関数型にしてラムダ式を許容）
+    @FunctionalInterface
+    interface PricingStrategy {
+        BigDecimal calculate(BigDecimal basePrice);
     }
 
-    static class BubbleSortStrategy implements SortStrategy {
-        @Override public int[] sort(int[] data) {
-            var result = Arrays.copyOf(data, data.length);
-            int n = result.length;
-            for (int i = 0; i < n - 1; i++) {
-                for (int j = 0; j < n - i - 1; j++) {
-                    if (result[j] > result[j + 1]) {
-                        int tmp = result[j];
-                        result[j] = result[j + 1];
-                        result[j + 1] = tmp;
-                    }
-                }
-            }
-            return result;
-        }
-    }
+    // ② 具体的な実装（状態なし → static final で使い回す）
+    static final PricingStrategy STANDARD =
+        price -> price.setScale(0, RoundingMode.HALF_UP);
 
-    static class DataProcessor {
-        private SortStrategy strategy;
-        public DataProcessor(SortStrategy s) { strategy = s; }
-        public void setStrategy(SortStrategy s) { strategy = s; }
-        public int[] process(int[] data) {
-            return strategy.sort(data);
+    static final PricingStrategy DISCOUNT_10 =
+        price -> price.multiply(new BigDecimal("0.9"))
+                      .setScale(0, RoundingMode.HALF_UP);
+
+    static final PricingStrategy VIP =
+        price -> price.multiply(new BigDecimal("0.8"))
+                      .setScale(0, RoundingMode.HALF_UP);
+
+    // ③ 選択ロジックを Map に一元化（if-else を排除）
+    static final Map<String, PricingStrategy> STRATEGIES = Map.of(
+        "standard",  STANDARD,
+        "discount10", DISCOUNT_10,
+        "vip",       VIP
+    );
+
+    // ④ Context：Strategy を受け取って価格を計算する
+    static class PriceCalculator {
+        private PricingStrategy strategy;
+        PriceCalculator(PricingStrategy s) { this.strategy = s; }
+        void setStrategy(PricingStrategy s) { this.strategy = s; }
+        BigDecimal calculate(BigDecimal base) {
+            return strategy.calculate(base);
         }
     }
 
     record Person(String name, int age) {}
 
     public static void main(String[] args) {
-        var data = new int[]{5, 2, 8, 1, 9, 3};
+        var base = new BigDecimal("10000");
+        var calc = new PriceCalculator(STANDARD);
 
-        var processor = new DataProcessor(
-                new BubbleSortStrategy());
-        System.out.println("バブルソート: "
-            + Arrays.toString(processor.process(data)));
+        System.out.println("通常: " + calc.calculate(base));    // 10000
 
-        // ラムダ式で Strategy を直接定義
-        processor.setStrategy(d -> {
-            var sorted = Arrays.copyOf(d, d.length);
-            Arrays.sort(sorted);
-            return sorted;
-        });
-        System.out.println("Arrays.sort: "
-            + Arrays.toString(processor.process(data)));
+        calc.setStrategy(DISCOUNT_10);
+        System.out.println("10%割引: " + calc.calculate(base)); // 9000
+
+        calc.setStrategy(VIP);
+        System.out.println("VIP: " + calc.calculate(base));    // 8000
+
+        // Map から動的に選択（if-else なし）
+        String customerType = "discount10";
+        var selected = STRATEGIES.getOrDefault(customerType, STANDARD);
+        System.out.println("動的選択: " + selected.calculate(base)); // 9000
 
         // Comparator は Strategy パターンそのもの
         var persons = new ArrayList<Person>();
@@ -2975,13 +2985,11 @@ public class StrategyPatternDemo {
         persons.add(new Person("佐藤", 28));
         persons.add(new Person("鈴木", 42));
 
-        var byAge = new ArrayList<>(persons);
-        byAge.sort(Comparator.comparingInt(Person::age));
-        System.out.println("年齢順: " + byAge);
+        persons.sort(Comparator.comparingInt(Person::age));
+        System.out.println("年齢順: " + persons);
 
-        var byName = new ArrayList<>(persons);
-        byName.sort((a, b) -> a.name().compareTo(b.name()));
-        System.out.println("名前順: " + byName);
+        persons.sort(Comparator.comparing(Person::name).reversed());
+        System.out.println("名前逆順: " + persons);
     }
 }`,
 },
