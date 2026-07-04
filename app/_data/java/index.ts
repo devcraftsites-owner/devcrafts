@@ -33,7 +33,7 @@ const PUBLISHED_SLUGS = new Set([
   "tax-calculation",
   "percentage-calculation",
   "unit-conversion",
-  // --- カテゴリ代表記事 (21) ---
+  // --- カテゴリ代表記事 (23) ---
   "singleton-pattern",
   "builder-pattern",
   "regex-basics",

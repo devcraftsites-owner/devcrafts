@@ -1,7 +1,8 @@
 import { PUBLISHED_ARTICLE_PREVIEWS, JAVA_CATEGORIES, PRIORITY_JAVA_TOPICS, getJavaArticleHref, getJavaCategoryHref } from "./java"
-import { PRIORITY_TOOLS, getToolHref } from "./tools"
+import { TOOLS, getToolHref } from "./tools"
+import { BLOG_ARTICLES, getBlogArticleHref } from "./blog"
 
-export type SearchEntryType = "article" | "tool" | "tag" | "api"
+export type SearchEntryType = "article" | "tool" | "tag" | "api" | "blog"
 
 export type SearchEntry = {
   label: string
@@ -40,11 +41,18 @@ const topicEntries: SearchEntry[] = PRIORITY_JAVA_TOPICS.map((topic) => ({
   keywords: [topic, "注目テーマ"],
 }))
 
-const toolEntries: SearchEntry[] = PRIORITY_TOOLS.map((tool) => ({
+const toolEntries: SearchEntry[] = TOOLS.filter((tool) => tool.status === "ready").map((tool) => ({
   label: tool.name,
   type: "tool",
   href: getToolHref(tool.slug),
   keywords: [tool.name, tool.summary, tool.slug, ...(tool.keywords ?? [])],
+}))
+
+const blogEntries: SearchEntry[] = BLOG_ARTICLES.map((article) => ({
+  label: article.title,
+  type: "blog",
+  href: getBlogArticleHref(article.slug),
+  keywords: [article.title, article.description, ...article.tags, ...article.searchKeywords],
 }))
 
 const categoryEntries: SearchEntry[] = JAVA_CATEGORIES.map((category) => ({
@@ -54,7 +62,7 @@ const categoryEntries: SearchEntry[] = JAVA_CATEGORIES.map((category) => ({
   keywords: [category.name, category.summary, category.slug],
 }))
 
-export const SEARCH_INDEX: SearchEntry[] = [...articleEntries, ...topicEntries, ...toolEntries, ...categoryEntries]
+export const SEARCH_INDEX: SearchEntry[] = [...articleEntries, ...topicEntries, ...toolEntries, ...blogEntries, ...categoryEntries]
 
 function getSearchEntryKey(entry: SearchEntry) {
   return `${entry.type}:${entry.label}:${entry.href}`

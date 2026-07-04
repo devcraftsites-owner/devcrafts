@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { getJavaArticleBySlug, getJavaArticleHref } from "../../_data/java"
+import { getJavaArticleBySlug, getJavaArticleHref, isPublishedArticle } from "../../_data/java"
 import { type ToolDefinition, getToolBySlug, getToolHref, TOOLS } from "../../_data/tools"
 import { BusinessDaysTool } from "../_components/BusinessDaysTool"
 import { JapanHolidaysTool } from "../_components/JapanHolidaysTool"
@@ -115,9 +115,11 @@ export async function generateMetadata({ params }: ToolPageProps): Promise<Metad
   }
 
   return {
-    title: `${entry.name} — ${entry.summary.replace(/。$/, "")}｜ブラウザ完結`.slice(0, 50),
+    title: `${entry.name}（無料・ブラウザ完結・サーバー送信なし）`,
     description,
     alternates: { canonical: "./" },
+    // 準備中ツールはスタブ表示のみのため noindex にする
+    ...(entry.status === "ready" ? {} : { robots: { index: false, follow: false } }),
   }
 }
 
@@ -129,9 +131,13 @@ export default async function ToolDetailPage({ params }: ToolPageProps) {
     notFound()
   }
 
+  // noindex の未公開記事へ内部リンクを張らないよう、公開記事のみ表示する
   const relatedArticles = (entry.relatedArticleSlugs ?? [])
+    .filter((slug) => isPublishedArticle(slug))
     .map((slug) => getJavaArticleBySlug(slug))
     .filter((article): article is NonNullable<typeof article> => Boolean(article))
+
+  const toolComponent = entry.status === "ready" ? renderToolComponent(entry) : null
 
   // JSON-LD: static data only (no user input), safe to serialize
   const jsonLd = entry.status === "ready" ? JSON.stringify({
@@ -189,8 +195,8 @@ export default async function ToolDetailPage({ params }: ToolPageProps) {
 
       <section className="tool-detail-layout">
         <section className="compact-stack">
-          {entry.status === "ready" && renderToolComponent(entry) ? (
-            renderToolComponent(entry)
+          {toolComponent ? (
+            toolComponent
           ) : (
             <section className="panel">
               <div className="section-header">

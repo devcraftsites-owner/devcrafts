@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next"
-import { JAVA_CATEGORIES, isPublishedArticle } from "./_data/java"
+import { JAVA_CATEGORIES, isPublishedArticle, getPublishedArticleCount } from "./_data/java"
 import { JAVA_ARTICLES } from "./_data/java"
 import { TOOLS } from "./_data/tools"
+import { BLOG_ARTICLES } from "./_data/blog"
 
 export const dynamic = "force-static"
 
@@ -12,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/",
     "/java/",
     "/tools/",
+    "/blog/",
     "/about/",
     "/contact/",
     "/privacy/",
@@ -21,10 +23,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date(),
   }))
 
-  const categoryPages: MetadataRoute.Sitemap = JAVA_CATEGORIES.map((cat) => ({
-    url: `${BASE_URL}/java/${cat.slug}/`,
-    lastModified: new Date(),
-  }))
+  // 公開記事が1件もないカテゴリは「準備中」スタブしか表示されないため sitemap から除外する
+  const categoryPages: MetadataRoute.Sitemap = JAVA_CATEGORIES
+    .filter((cat) => getPublishedArticleCount(cat.slug) > 0)
+    .map((cat) => ({
+      url: `${BASE_URL}/java/${cat.slug}/`,
+      lastModified: new Date(),
+    }))
 
   const articlePages: MetadataRoute.Sitemap = JAVA_ARTICLES
     .filter((article) => isPublishedArticle(article.slug))
@@ -40,5 +45,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
     }))
 
-  return [...staticPages, ...categoryPages, ...articlePages, ...toolPages]
+  const blogPages: MetadataRoute.Sitemap = BLOG_ARTICLES.map((article) => ({
+    url: `${BASE_URL}/blog/${article.slug}/`,
+    lastModified: article.publishedAt,
+  }))
+
+  return [...staticPages, ...categoryPages, ...articlePages, ...toolPages, ...blogPages]
 }

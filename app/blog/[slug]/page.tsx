@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { getBlogArticle, getBlogArticleHref, BLOG_ARTICLES } from "../../_data/blog"
-import { getJavaArticleBySlug, getJavaArticleHref } from "../../_data/java"
+import { getJavaArticleBySlug, getJavaArticleHref, isPublishedArticle } from "../../_data/java"
 import { getToolBySlug, getToolHref } from "../../_data/tools"
 import { CopyButton } from "../../_components/CopyButton"
 import AdSlot from "../../_components/AdSlot"
@@ -32,7 +32,9 @@ export default async function BlogArticlePage({ params }: BlogPageProps) {
   const article = getBlogArticle(slug)
   if (!article) notFound()
 
+  // noindex の未公開記事へ内部リンクを張らないよう、公開記事のみ表示する
   const relatedArticles = article.relatedArticleSlugs
+    .filter((s) => isPublishedArticle(s))
     .map((s) => getJavaArticleBySlug(s))
     .filter((a): a is NonNullable<typeof a> => Boolean(a))
 
@@ -99,47 +101,45 @@ export default async function BlogArticlePage({ params }: BlogPageProps) {
             </section>
 
             <section className="article-card article-body">
-              <h2>何が起きたか？</h2>
+              <h2 className="section-title">何が起きたか？</h2>
               <p>{article.symptom}</p>
               <p className="section-caption">環境: {article.environment}</p>
             </section>
 
             <section className="article-card article-body">
-              <h2>最初に試したこと（そしてダメだった）</h2>
+              <h2 className="section-title">最初に試したこと（そしてダメだった）</h2>
               <p>{article.wrongApproach}</p>
             </section>
 
             <AdSlot placement="java" format="text" className="ad-seat ad-seat--inline" />
 
             <section className="article-card article-body">
-              <h2>結局、原因はこれだった</h2>
+              <h2 className="section-title">結局、原因はこれだった</h2>
               <p>{article.rootCause}</p>
             </section>
 
             <section className="article-card article-body">
-              <h2>こうやって直した</h2>
+              <h2 className="section-title">こうやって直した</h2>
               <p>{article.solution}</p>
               {article.solutionCode && (
-                <div className="code-block-wrapper">
-                  <div className="code-block-header">
+                <div className="code-block">
+                  <div className="code-block__top">
                     <span>解決コード</span>
                     <CopyButton text={article.solutionCode} />
                   </div>
-                  <pre className="code-block">
-                    <code>{article.solutionCode}</code>
-                  </pre>
+                  <pre>{article.solutionCode}</pre>
                 </div>
               )}
             </section>
 
             <section className="article-card article-body">
-              <h2>次から気をつけること</h2>
+              <h2 className="section-title">次から気をつけること</h2>
               <p>{article.prevention}</p>
             </section>
 
             {article.faq.length > 0 && (
               <section className="article-card article-body">
-                <h2>FAQ</h2>
+                <h2 className="section-title">FAQ</h2>
                 <div className="compact-stack">
                   {article.faq.map((item) => (
                     <section key={item.question} className="panel panel--soft">

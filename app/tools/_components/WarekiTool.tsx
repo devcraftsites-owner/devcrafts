@@ -48,7 +48,7 @@ export function WarekiTool({ initialDate, initialWareki }: WarekiToolProps) {
               </button>
             ))}
           </div>
-          <div className="tool-result tool-result--accent">
+          <div className="tool-result tool-result--accent" aria-live="polite">
             <strong>Conversion Result</strong>
             {gregorianResult.ok ? (
               <div className="result-stack">
@@ -56,7 +56,7 @@ export function WarekiTool({ initialDate, initialWareki }: WarekiToolProps) {
                 <span className="result-line">{gregorianResult.shortWareki}</span>
               </div>
             ) : (
-              <span>{gregorianResult.error}</span>
+              <span role="alert">{gregorianResult.error}</span>
             )}
           </div>
         </section>
@@ -83,7 +83,7 @@ export function WarekiTool({ initialDate, initialWareki }: WarekiToolProps) {
               </button>
             ))}
           </div>
-          <div className="tool-result tool-result--accent">
+          <div className="tool-result tool-result--accent" aria-live="polite">
             <strong>Conversion Result</strong>
             {warekiResult.ok ? (
               <div className="result-stack">
@@ -91,7 +91,7 @@ export function WarekiTool({ initialDate, initialWareki }: WarekiToolProps) {
                 <span className="result-line">{warekiResult.shortWareki}</span>
               </div>
             ) : (
-              <span>{warekiResult.error}</span>
+              <span role="alert">{warekiResult.error}</span>
             )}
           </div>
         </section>

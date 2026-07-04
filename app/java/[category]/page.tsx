@@ -5,6 +5,7 @@ import {
   getJavaArticlesByCategory,
   getJavaArticleHref,
   getJavaCategory,
+  getPublishedArticleCount,
   isPublishedArticle,
   JAVA_CATEGORIES,
 } from "../../_data/java"
@@ -33,10 +34,14 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     ? `${rawDescription.slice(0, 117)}...`
     : rawDescription
 
+  // 公開記事が1件もないカテゴリは「準備中」スタブのみのため noindex にする
+  const hasPublishedArticles = getPublishedArticleCount(category.slug) > 0
+
   return {
     title: `【Java】${category.name}の実務レシピ一覧（Java 8/17/21対応）`,
     description,
     alternates: { canonical: "./" },
+    ...(hasPublishedArticles ? {} : { robots: { index: false, follow: false } }),
   }
 }
 

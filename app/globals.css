@@ -10,6 +10,9 @@
   --accent: #1d4ed8;
   --accent-soft: rgba(29, 78, 216, 0.1);
   --success-soft: rgba(15, 118, 110, 0.12);
+  --success-text: #0f766e;
+  --pr-soft: rgba(194, 107, 57, 0.14);
+  --pr-text: #b45309;
   --shadow: 0 20px 50px rgba(18, 32, 59, 0.08);
   --code-bg: #0f172a;
   --code-text: #e5efff;
@@ -28,6 +31,9 @@ html[data-theme="dark"] {
   --accent: #7dd3fc;
   --accent-soft: rgba(125, 211, 252, 0.14);
   --success-soft: rgba(45, 212, 191, 0.14);
+  --success-text: #5eead4;
+  --pr-soft: rgba(251, 191, 36, 0.16);
+  --pr-text: #fbbf24;
   --shadow: 0 28px 60px rgba(5, 10, 20, 0.35);
   --code-bg: #030712;
   --code-text: #e8f1ff;
@@ -212,6 +218,7 @@ input {
 }
 
 .search-box__type--article,
+.search-box__type--blog,
 .badge {
   background: var(--accent-soft);
   color: var(--accent);
@@ -219,7 +226,7 @@ input {
 
 .search-box__type--tool {
   background: var(--success-soft);
-  color: #0f766e;
+  color: var(--success-text);
 }
 
 .search-box__type--tag,
@@ -565,8 +572,8 @@ input {
 }
 
 .badge--pr {
-  background: rgba(194, 107, 57, 0.14);
-  color: #b45309;
+  background: var(--pr-soft);
+  color: var(--pr-text);
 }
 
 .card-grid {

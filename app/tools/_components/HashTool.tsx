@@ -25,11 +25,11 @@ export function HashTool() {
   const [algorithm, setAlgorithm] = useState<HashAlgorithm>("SHA-256")
   const [result, setResult] = useState<HashState>(null)
 
+  const trimmed = input.trim()
+
   useEffect(() => {
     let cancelled = false
-    const trimmed = input.trim()
     if (!trimmed) {
-      setResult({ error: "ハッシュ化するテキストを入力してください。" })
       return
     }
     computeHash(trimmed, algorithm).then((r) => {
@@ -41,7 +41,7 @@ export function HashTool() {
       }
     })
     return () => { cancelled = true }
-  }, [input, algorithm])
+  }, [trimmed, algorithm])
 
   const hashBitLength = useMemo(() => {
     if (result && "hex" in result) return result.hex.length * 4
@@ -100,9 +100,11 @@ export function HashTool() {
             ))}
           </div>
 
-          <div className="tool-result tool-result--accent">
+          <div className="tool-result tool-result--accent" aria-live="polite">
             <strong>Hash Result</strong>
-            {result && "hex" in result ? (
+            {!trimmed ? (
+              <span role="alert">ハッシュ化するテキストを入力してください。</span>
+            ) : result && "hex" in result ? (
               <div className="result-stack">
                 <span className="result-line">
                   <strong>Hex ({hashBitLength} bit)</strong>
@@ -121,7 +123,7 @@ export function HashTool() {
                 </span>
               </div>
             ) : result && "error" in result ? (
-              <span>{result.error}</span>
+              <span role="alert">{result.error}</span>
             ) : (
               <span>計算中...</span>
             )}

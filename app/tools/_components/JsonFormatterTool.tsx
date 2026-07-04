@@ -93,7 +93,7 @@ export function JsonFormatterTool() {
             <p className="eyebrow">Output</p>
             <h3>変換結果</h3>
           </div>
-          <div className="tool-result tool-result--accent">
+          <div className="tool-result tool-result--accent" aria-live="polite">
             <strong>Result</strong>
             {result.ok ? (
               <div className="result-stack">
@@ -114,7 +114,7 @@ export function JsonFormatterTool() {
                 </span>
               </div>
             ) : (
-              <span>{result.error}</span>
+              <span role="alert">{result.error}</span>
             )}
           </div>
         </section>

@@ -10,6 +10,7 @@ const labels = {
   tool: "Tool",
   tag: "Tag",
   api: "API",
+  blog: "Blog",
 } as const
 
 export function SearchBox() {

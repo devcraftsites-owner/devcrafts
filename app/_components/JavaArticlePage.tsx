@@ -4,6 +4,7 @@ import {
   getJavaArticleHref,
   getJavaCategory,
   getJavaCategoryHref,
+  isPublishedArticle,
   type JavaArticleDetail,
 } from "../_data/java"
 import { getBooksByCategory } from "../_data/java/books"
@@ -21,7 +22,9 @@ type JavaArticlePageProps = {
 export function JavaArticlePage({ article }: JavaArticlePageProps) {
   const category = getJavaCategory(article.categorySlug)
   const relatedTool = article.toolSlug ? getToolBySlug(article.toolSlug) : undefined
+  // noindex の未公開記事へ内部リンクを張らないよう、公開記事のみ表示する
   const relatedArticles = article.relatedArticleSlugs
+    .filter((slug) => isPublishedArticle(slug))
     .map((slug) => getJavaArticleBySlug(slug))
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
