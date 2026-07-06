@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
   tags: ["JDBC", "Connection", "Statement", "CRUD", "try-with-resources"],
   apiNames: ["DriverManager", "Connection", "Statement", "ResultSet", "SQLException"],
   description: "Java 標準 JDBC API で DB 接続から SELECT/INSERT/UPDATE/DELETE の基本操作を実装し、リソース管理の注意点を Java 8/17/21 対応で解説する。",
-  lead: "業務システムの多くはデータベースとのやり取りを伴います。Java では JDBC（Java Database Connectivity）が標準 API として用意されており、外部ライブラリを追加しなくても基本的な DB 操作が可能です。フレームワークに任せる場面が増えた今でも、JDBC の基本を押さえておくことはトラブル時の原因調査や、フレームワークが生成する SQL の理解に直結します。DriverManager による接続取得、Statement を使った SELECT・INSERT・UPDATE・DELETE、try-with-resources によるリソースの確実な解放まで整理した。保守案件や社内ツールで「素の JDBC」を触る場面に備え、動作する完結したコードで基本操作を確認できる。",
+  lead: "業務システムの多くはデータベースとのやり取りを伴います。Java では JDBC（Java Database Connectivity）が標準 API として用意されており、外部ライブラリを追加しなくても基本的な DB 操作が可能です。フレームワークに任せる場面が増えた今でも、JDBC の基本を押さえておくことはトラブル時の原因調査や、フレームワークが生成する SQL の理解に直結します。この記事では DriverManager による接続取得、Statement を使った SELECT・INSERT・UPDATE・DELETE、try-with-resources によるリソースの確実な解放までを整理します。保守案件や社内ツールで「素の JDBC」を触る場面に備え、動作する完結したコードで基本操作を確認できます。",
   useCases: [
     "社内管理ツールから従業員マスタを参照・更新する画面の裏側を JDBC で実装する",
     "バッチ処理で CSV から読み取ったデータを DB テーブルへ INSERT する",

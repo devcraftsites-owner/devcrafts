@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
   tags: ["Enum", "定数管理", "switch", "values", "valueOf"],
   apiNames: ["Enum", "Enum.values", "Enum.valueOf", "Enum.name", "Enum.ordinal"],
   description: "Java Enum の基本的な定義方法から values・valueOf・name・ordinal の使い分け、switch での分岐パターンまでを Java 8/17/21 対応で解説する。",
-  lead: "業務コードで「状態」や「区分」を扱うとき、文字列定数や int 定数を並べて管理しているプロジェクトは少なくありません。しかし定数が増えるほどタイポや比較ミスが入り込みやすくなり、保守コストが静かに膨らんでいきます。Java の Enum はこうした問題に対する標準的な回答で、型安全な定数グループを定義し、switch 文で網羅性チェックまで得られます。Enum の基本的な定義方法から values() による全要素取得、valueOf() による文字列変換、name() と ordinal() の違いと注意点、switch 文・switch 式での分岐パターンまで整理した。Java 8 の従来型 switch と Java 14 以降の switch 式の書き分けも示しながら、現場で迷いやすいポイントを押さえる。",
+  lead: "業務コードで「状態」や「区分」を扱うとき、文字列定数や int 定数を並べて管理しているプロジェクトは少なくありません。しかし定数が増えるほどタイポや比較ミスが入り込みやすくなり、保守コストが静かに膨らんでいきます。Java の Enum はこうした問題に対する標準的な回答で、型安全な定数グループを定義し、switch 文で網羅性チェックまで得られます。この記事では Enum の基本的な定義方法から values() による全要素取得、valueOf() による文字列変換とその失敗パターン、name() と ordinal() の違いと注意点、switch 文・switch 式での分岐パターンまでを整理します。Java 8 の従来型 switch と Java 14 以降の switch 式の書き分けも示しながら、現場で迷いやすいポイントを押さえます。",
   useCases: [
     "注文ステータス（未処理・処理中・完了・キャンセル）を Enum で定義し、画面表示やバッチ処理の分岐に使う",
     "曜日や休日種別を Enum にまとめ、勤怠管理システムの休日判定ロジックを型安全に記述する",
@@ -95,6 +95,14 @@ for (var entry : statusLabels.entrySet()) {
         // valueOf() で文字列から変換
         var fromStr = OrderStatus.valueOf("COMPLETED");
         System.out.println("文字列から変換: " + fromStr);
+
+        // 外部入力の変換は失敗し得る: 存在しない値は IllegalArgumentException
+        try {
+            OrderStatus.valueOf("SHIPPED");
+        } catch (IllegalArgumentException e) {
+            System.out.println("変換失敗: " + e.getMessage());
+            // 変換失敗: No enum constant EnumBasicExample.OrderStatus.SHIPPED
+        }
 
         // == で比較（equals() より安全）
         System.out.println(status == OrderStatus.PROCESSING); // true

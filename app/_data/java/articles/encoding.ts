@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["Base64", "エンコード", "URLセーフ", "バイナリ変換"],
     apiNames: ["Base64.getEncoder", "Base64.getDecoder", "Base64.getUrlEncoder", "Base64.getUrlDecoder", "StandardCharsets.UTF_8"],
     description: "Java 標準 API の Base64 クラスで文字列・バイナリ・URL セーフエンコードを実装する方法を、外部ライブラリ不要で Java 8/17/21 対応のバージョン差分付きで解説する。",
-    lead: "Base64 エンコードは、メール添付・REST API のトークン受け渡し・画像のインライン埋め込みなど、バイナリデータをテキストとして安全にやり取りする場面で頻繁に使われます。Java 8 以降は java.util.Base64 が標準で用意されており、外部ライブラリなしで3種類のエンコード方式（標準・URL セーフ・MIME）を使い分けることができます。文字列の往復変換、URL に含めても壊れない URL セーフ Base64、バイナリデータの変換といった実務で必要になるパターンを整理した。パディングの有無による挙動の違いや、文字コードの指定を忘れたときに起きる問題など、初見で引っかかりやすいポイントも取り上げる。",
+    lead: "「エンコードした側は正常なのに、受け取った側でデコードできない」――Base64 のトラブルはたいてい、標準版と URL セーフ版の混在か、getBytes() の文字コード未指定のどちらかに行き着きます。Java 8 以降は java.util.Base64 が標準で用意されており、外部ライブラリなしで標準・URL セーフ・MIME の3方式を使い分けられます。この記事では文字列の往復変換、URL に含めても壊れない URL セーフ Base64、バイナリデータの変換を実行結果つきで整理し、同じデータが方式によって「+/8=」と「-_8」に分かれること、それを取り違えたデコーダーに渡すと実際に何が起きるかも失敗例として確認します。Base64 は暗号化ではない、という運用上の注意も添えます。",
     useCases: [
       "REST API の認証ヘッダーにユーザー名とパスワードを Base64 エンコードして Basic 認証トークンを組み立てる",
       "アップロードされた画像ファイルを Base64 文字列に変換し、JSON レスポンスにインラインで埋め込む",
@@ -115,6 +115,19 @@ public class Base64EncodingExample {
         var urlSafe = encodeUrlSafe("test/path?key=value&other=123");
         System.out.println("URL セーフ: " + urlSafe);
         System.out.println("デコード:   " + decodeUrlSafe(urlSafe));
+
+        // 同じデータでも方式で出力が変わる（62番目・63番目の文字が違う）
+        var binary2 = new byte[]{(byte) 0xFB, (byte) 0xFF};
+        System.out.println(Base64.getEncoder().encodeToString(binary2)); // +/8=
+        System.out.println(Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(binary2)); // -_8
+
+        // 取り違えの失敗例: URL セーフの出力を標準デコーダーに渡す
+        try {
+            Base64.getDecoder().decode("-_8");
+        } catch (IllegalArgumentException e) {
+            System.out.println("標準デコーダーでは失敗: " + e.getMessage()); // Illegal base64 character 2d
+        }
 
         // バイナリデータの往復確認
         var binary = new byte[]{0x00, 0x01, 0x02, (byte) 0xFF, (byte) 0xFE};

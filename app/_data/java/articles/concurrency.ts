@@ -682,7 +682,7 @@ public class CompletableFuturePatternsDemo {
   tags: ["仮想スレッド", "Virtual Threads", "Java 21", "Loom", "並行処理", "スレッド"],
   apiNames: ["Thread.ofVirtual", "Executors.newVirtualThreadPerTaskExecutor", "Thread.startVirtualThread", "Thread.isVirtual"],
   description: "Java 21 の仮想スレッド（Virtual Threads）の使い方を実務コードで解説する。従来のプラットフォームスレッドとの違い、pinning 問題、移行指針を整理。",
-  lead: "Java 21 で正式導入された仮想スレッド（Virtual Threads）は、従来のプラットフォームスレッドとは異なり、OS スレッドに1対1で紐づかない軽量なスレッドです。これにより、スレッドプールのサイズを気にすることなく、I/O 待ちの多い処理を大量に並行実行できるようになりました。従来は数百スレッドが実用上の限界でしたが、仮想スレッドでは数万〜数十万の並行タスクを低コストで起動できます。ただし、CPU 集約的な処理には向かない点や、synchronized ブロック内でのブロッキングによる pinning 問題など、導入時に理解しておくべき注意点もあります。Thread.ofVirtual() や Executors.newVirtualThreadPerTaskExecutor() の基本的な使い方から、既存コードの移行方針、pinning の回避策まで、外部ライブラリなしの完結したコードで示した。",
+  lead: "Java 21 で正式導入された仮想スレッド（Virtual Threads）は、従来のプラットフォームスレッドとは異なり、OS スレッドに1対1で紐づかない軽量なスレッドです。これにより、スレッドプールのサイズを気にすることなく、I/O 待ちの多い処理を大量に並行実行できるようになりました。従来は数百スレッドが実用上の限界でしたが、仮想スレッドでは数万〜数十万の並行タスクを低コストで起動できます。ただし、CPU 集約的な処理には向かない点や、synchronized ブロック内でのブロッキングによる pinning 問題など、導入時に理解しておくべき注意点もあります。この記事では Thread.ofVirtual() や Executors.newVirtualThreadPerTaskExecutor() の基本的な使い方から、既存コードの移行方針、pinning の回避策まで、外部ライブラリなしの完結したコードで示します。",
   useCases: [
     "Web サーバーで1リクエスト1仮想スレッドのモデルを採用し、数千の同時接続を少ない OS リソースで処理する",
     "夜間バッチで数千件の外部 API 呼び出しを仮想スレッドで並行実行し、全体の処理時間を短縮する",

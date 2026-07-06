@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["Stream", "filter", "map"],
     apiNames: ["Stream.filter", "Stream.map"],
     description: "Java の Stream API で filter と map を組み合わせ、業務コードの一覧絞り込みと DTO 変換を実装する方法を Java 8/17/21 対応で解説する。",
-    lead: "業務システムでは、データベースから取得した一覧を条件で絞り込み、画面表示用の DTO に変換する処理が頻繁に発生します。for ループとif文で書くと行数が膨らみ、可読性が下がります。Stream API の filter と map を使えば、データの流れを宣言的に記述でき、意図が伝わりやすいコードになります。実務でよく使うパターンを中心に、filter と map の組み合わせ方を整理した。",
+    lead: "DB から取得した一覧を条件で絞り込み、画面用の DTO に詰め替える――この「絞り込んで変換する」処理は、業務コードの中でおそらく最も繰り返し書く形です。for ループと if の入れ子でも書けますが、一時リストへの add が増えるほど「結局どの条件で何が残るのか」が読み取りにくくなります。Stream の filter と map はこの流れを一本のパイプラインで宣言的に表現でき、コードレビューでの認識合わせも楽になります。この記事では社員一覧の絞り込みと DTO 変換を題材に、filter を map より先に置く理由、null が混ざったリストへの備え、Stream が一度しか消費できないという制約を、実行結果つきのコードで整理します。",
     useCases: [
       "社員一覧から特定部署のメンバーだけを抽出して画面用 DTO に変換する",
       "受注データから未出荷の注文だけを絞り込んで出荷指示リストを作る",
@@ -62,7 +62,8 @@ products.stream().forEach(p -> {
       { question: "並列 Stream はいつ使うべきですか？", answer: "要素数が数万件以上で、各要素の処理が重い場合に効果があります。少量データでは逆にオーバーヘッドが生じます。" },
     ],
     codeTitle: "filter と map で一覧を変換する",
-    codeSample: `import java.util.List;
+    codeSample: `import java.util.ArrayList;
+import java.util.Objects;
 
 public class StreamFilterMap {
 
@@ -70,19 +71,32 @@ public class StreamFilterMap {
     record EmployeeDto(String name, int age) {}
 
     public static void main(String[] args) {
-        var employees = List.of(
-            new Employee("田中", "開発", 28),
-            new Employee("鈴木", "営業", 35),
-            new Employee("佐藤", "開発", 42),
-            new Employee("高橋", "人事", 31)
-        );
+        // 外部データの取込を想定し、null 混じりの一覧を用意
+        var employees = new ArrayList<Employee>();
+        employees.add(new Employee("田中", "開発", 28));
+        employees.add(new Employee("鈴木", "営業", 35));
+        employees.add(null); // 欠損レコード
+        employees.add(new Employee("佐藤", "開発", 42));
+        employees.add(new Employee("高橋", null, 31)); // 部署未設定
 
         var devMembers = employees.stream()
-            .filter(e -> "開発".equals(e.dept()))
+            .filter(Objects::nonNull)             // 欠損レコードを最初に落とす
+            .filter(e -> "開発".equals(e.dept())) // 定数を左辺に置けば dept が null でも落ちない
             .map(e -> new EmployeeDto(e.name(), e.age()))
             .toList();
 
         devMembers.forEach(System.out::println);
+        // EmployeeDto[name=田中, age=28]
+        // EmployeeDto[name=佐藤, age=42]
+
+        // Stream は一度しか消費できない。使い回すと実行時例外になる
+        var stream = employees.stream().filter(Objects::nonNull);
+        System.out.println("1回目: " + stream.count()); // 1回目: 4
+        try {
+            stream.count();
+        } catch (IllegalStateException e) {
+            System.out.println("2回目: 再利用は不可（" + e.getMessage() + "）");
+        }
     }
 }`,
   },

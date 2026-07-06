@@ -10,11 +10,11 @@ export const articles: JavaArticleDetail[] = [
     tags: ["Singleton", "GoF", "生成パターン", "スレッドセーフ", "enum"],
     apiNames: ["Runtime.getRuntime", "enum", "volatile", "synchronized"],
     description: "Singleton パターンを Java で安全に実装する方法を Eager・Holder・Enum の3方式で比較し、スレッド安全性とシリアライズ耐性を整理する。",
-    lead: "アプリケーション全体でインスタンスを1つだけ保持したい場面は、設定管理やコネクションプール、ロガーなど業務コードの中にも少なくありません。Singleton パターンはその要求に応えるもっとも基本的な設計ですが、正しく実装しないとマルチスレッド環境で複数インスタンスが生まれたり、シリアライズで別オブジェクトが復元されたりといった問題が起きます。Eager Initialization・Initialization-on-demand Holder・Enum Singleton の3方式を取り上げ、スレッド安全性・遅延初期化・シリアライズ耐性を比較した。double-checked locking が必要になるケースとその落とし穴、Java 標準ライブラリでの Singleton 実例（Runtime.getRuntime）も確認し、実務で迷わない選択基準を示す。",
+    lead: "負荷試験の最中に、1回しか出ないはずの「設定読み込み完了」ログが2行並んでいた――synchronized を省いた lazy 初期化の Singleton は、開発機のシングルスレッドでは何年でも正しく動き、並列度が上がった瞬間に複数インスタンスを生みます。この記事では Eager Initialization・Initialization-on-demand Holder・Enum Singleton の3方式を、スレッド安全性・遅延初期化・シリアライズ耐性の3点で比較します。double-checked locking に volatile が欠かせない理由と、デシリアライズで別インスタンスが生まれる罠への readResolve() による対処を、実行して結果を確かめられるコードで確認します。新規に書くなら Holder か Enum――結論を先に示したうえで、その根拠を順に説明します。",
     useCases: [
-      "アプリケーション設定を1つのインスタンスに集約し、どのクラスからも同じ値を参照できるようにする",
-      "DB コネクションプールの管理クラスを Singleton にして、接続の生成・破棄を一元管理する",
-      "ログ出力を統一するロガーを Singleton で提供し、出力先の切り替えを一箇所で制御する",
+      "夜間バッチの起動時に設定ファイルを1回だけ読み込み、数十個の処理クラスから同じ値を参照させる（毎回ファイルを読むと I/O が処理件数分発生する）",
+      "DB コネクションプールの管理クラスを1インスタンスに固定し、接続数の上限管理を一箇所に集約する（複数インスタンスができると上限設定が意味を失う）",
+      "アプリ全体で共有する採番やキャッシュの入口を Singleton にし、可変な状態の置き場所を一箇所に限定する",
     ],
     cautions: [
       "Lazy Initialization を synchronized なしで書くと、マルチスレッドで2つ以上のインスタンスが生まれる。テスト環境では再現しにくいため本番で初めて発覚しやすい",
@@ -66,16 +66,21 @@ System.out.printf("env=%s timeout=%ds%n", cfg.env(), cfg.timeoutSec());`,
       { question: "Spring の Bean はデフォルトで Singleton ですが、自前の Singleton は不要ですか。", answer: "Spring 管理下のクラスなら @Component で十分です。ただし、DI コンテナ外で動くユーティリティやライブラリ層では、自前の Singleton が依然有用です。" },
     ],
     codeTitle: "SingletonPatternSample.java",
-    codeSample: `public class SingletonPatternSample {
+    codeSample: `import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
-    // Holder パターン: 初回アクセス時に JVM が安全に初期化
-    static class AppConfig {
-        private final String dbUrl;
-        private final int maxPool;
+public class SingletonPatternSample {
+
+    // Holder パターン: JVM のクラス初期化が排他を保証するので synchronized 不要
+    static class AppConfig implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String env = "prod";
 
         private AppConfig() {
-            this.dbUrl = "jdbc:mysql://localhost:3306/app";
-            this.maxPool = 10;
+            System.out.println("AppConfig 初期化（1回だけ出るはず）");
         }
 
         private static class Holder {
@@ -86,37 +91,49 @@ System.out.printf("env=%s timeout=%ds%n", cfg.env(), cfg.timeoutSec());`,
             return Holder.INSTANCE;
         }
 
-        public String getDbUrl() { return dbUrl; }
-        public int getMaxPool() { return maxPool; }
+        public String getEnv() { return env; }
+
+        // これを消すと、デシリアライズのたびに「別インスタンス」が生まれる
+        private Object readResolve() {
+            return getInstance();
+        }
     }
 
-    // Enum Singleton: 最もシンプルかつ安全
-    enum Logger {
+    // Enum Singleton: シリアライズもリフレクションも JVM 側で防がれる
+    enum Sequence {
         INSTANCE;
+        private int value = 0;
+        public synchronized int next() { return ++value; }
+    }
 
-        public void info(String msg) {
-            System.out.println("[INFO] " + msg);
+    // シリアライズ→デシリアライズの往復（キャッシュ保存やセッション複製の擬似）
+    static Object roundTrip(Object obj) throws Exception {
+        var buf = new ByteArrayOutputStream();
+        try (var out = new ObjectOutputStream(buf)) {
+            out.writeObject(obj);
         }
-
-        public void error(String msg) {
-            System.out.println("[ERROR] " + msg);
+        try (var in = new ObjectInputStream(
+                new ByteArrayInputStream(buf.toByteArray()))) {
+            return in.readObject();
         }
     }
 
-    public static void main(String[] args) {
-        // Holder パターン
-        var config1 = AppConfig.getInstance();
-        var config2 = AppConfig.getInstance();
-        System.out.println("同一インスタンス: " + (config1 == config2));
-        System.out.println("DB URL: " + config1.getDbUrl());
+    public static void main(String[] args) throws Exception {
+        // どこから呼んでも同じインスタンス
+        var a = AppConfig.getInstance();
+        var b = AppConfig.getInstance();
+        System.out.println("getInstance 同士: " + (a == b)); // true
 
-        // Enum Singleton
-        Logger.INSTANCE.info("アプリ起動");
-        Logger.INSTANCE.error("接続タイムアウト");
+        // デシリアライズ経由。readResolve があるので同一のまま
+        var restored = roundTrip(a);
+        System.out.println("デシリアライズ後: " + (a == restored)); // true（readResolve を消すと false）
 
-        // Java 標準ライブラリの Singleton 例
-        var rt = Runtime.getRuntime();
-        System.out.println("最大メモリ: " + rt.maxMemory() / 1024 / 1024 + " MB");
+        // Enum Singleton は仕組み上、往復しても必ず同一
+        var seqRestored = roundTrip(Sequence.INSTANCE);
+        System.out.println("Enum の復元: "
+            + (Sequence.INSTANCE == seqRestored)); // true
+        System.out.println("採番: " + Sequence.INSTANCE.next()
+            + ", " + Sequence.INSTANCE.next()); // 採番: 1, 2
     }
 }`,
   },
@@ -389,7 +406,7 @@ String desc = switch (product) {
     tags: ["Builder", "GoF", "生成パターン", "不変オブジェクト", "メソッドチェーン"],
     apiNames: ["StringBuilder", "HttpClient.newBuilder", "ProcessBuilder"],
     description: "Builder パターンで引数過多のコンストラクタを整理し、必須フィールドの強制と不変オブジェクト生成を両立する実装方法を Java 8/17/21 対応で示す。",
-    lead: "コンストラクタの引数が5つ6つと増えていくと、呼び出し側で「何番目の引数が何なのか」が分からなくなります。順序を間違えてもコンパイルが通る型が同じ引数（String が3つ並ぶなど）は特に危険です。Builder パターンは、名前付きメソッドで段階的にフィールドを設定し、最後に build() で不変オブジェクトを生成する構造を作ります。必須フィールドは Builder のコンストラクタで強制し、任意フィールドにはデフォルト値を設定できるため、呼び出し側のコードが自己文書化されます。HTTP リクエストとメールメッセージを題材に Builder パターンの基本構造を示し、Java 標準ライブラリの StringBuilder や HttpClient.newBuilder との対応関係も確認した。",
+    lead: "コンストラクタの引数が5つ6つと増えていくと、呼び出し側で「何番目の引数が何なのか」が分からなくなります。順序を間違えてもコンパイルが通る型が同じ引数（String が3つ並ぶなど）は特に危険です。Builder パターンは、名前付きメソッドで段階的にフィールドを設定し、最後に build() で不変オブジェクトを生成する構造を作ります。必須フィールドは Builder のコンストラクタで強制し、任意フィールドにはデフォルト値を設定できるため、呼び出し側のコードが自己文書化されます。HTTP リクエストを題材に Builder の基本構造と build() 時の検証（必須漏れ・不正値をここで止める）を示し、Java 標準ライブラリの StringBuilder や HttpClient.newBuilder が同じ構造であることも確認します。",
     useCases: [
       "HTTP リクエストの URL・メソッド・ヘッダー・ボディ・タイムアウトを段階的に設定し、不変のリクエストオブジェクトを生成する",
       "メール送信で宛先（必須）・CC・BCC・件名・本文・添付ファイル（任意）を Builder で組み立てる",
@@ -479,7 +496,14 @@ var client = java.net.http.HttpClient.newBuilder()
             public Builder timeout(int ms) { this.timeoutMs = ms; return this; }
             public Builder followRedirect(boolean f) { this.followRedirect = f; return this; }
 
-            public HttpRequest build() { return new HttpRequest(this); }
+            // 検証は build() に集約する。ここを通らない限り不正なオブジェクトは作れない
+            public HttpRequest build() {
+                if (timeoutMs <= 0) {
+                    throw new IllegalArgumentException(
+                        "タイムアウトは正の値を指定: " + timeoutMs);
+                }
+                return new HttpRequest(this);
+            }
         }
     }
 
@@ -491,16 +515,29 @@ var client = java.net.http.HttpClient.newBuilder()
             .followRedirect(false)
             .build();
         System.out.println(req);
+        // → HttpRequest{url=https://api.example.com/users, method=POST, timeout=5000ms}
 
-        // 最小構成（必須フィールドのみ）
+        // 最小構成: 任意フィールドはデフォルト値のまま
         var minimal = new HttpRequest.Builder("https://api.example.com/health")
             .build();
         System.out.println(minimal);
+        // → HttpRequest{url=https://api.example.com/health, method=GET, timeout=30000ms}
 
-        // 標準ライブラリの Builder 例
-        var sb = new StringBuilder()
-            .append("Hello, ").append("Builder").append("!");
-        System.out.println(sb.toString());
+        // 必須フィールド漏れは組み立て時点で止まる
+        try {
+            new HttpRequest.Builder("").build();
+        } catch (IllegalArgumentException e) {
+            System.out.println("組み立て失敗: " + e.getMessage()); // 組み立て失敗: URL は必須
+        }
+
+        // 不正値も build() で止まる（0 や負のタイムアウトが後工程に流れない）
+        try {
+            new HttpRequest.Builder("https://api.example.com")
+                .timeout(0)
+                .build();
+        } catch (IllegalArgumentException e) {
+            System.out.println("組み立て失敗: " + e.getMessage()); // 組み立て失敗: タイムアウトは正の値を指定: 0
+        }
     }
 }`,
   },

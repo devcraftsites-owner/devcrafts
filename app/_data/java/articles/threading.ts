@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
   tags: ["Thread", "Runnable", "start", "join", "interrupt"],
   apiNames: ["Thread", "Runnable", "Thread.start", "Thread.join", "Thread.interrupt", "Thread.currentThread"],
   description: "Java のスレッド作成パターン3種と start/join/interrupt の使い方を Java 8/17/21 対応で解説する。仮想スレッドにも触れる。",
-  lead: "Java でマルチスレッド処理を書く場面は、バッチの並列実行や非同期ログ出力など、業務システムでも少なくありません。Thread クラスを継承する方法、Runnable を実装する方法、ラムダ式で書く方法の3パターンがあり、どれを選ぶかで保守性やテストしやすさが変わります。スレッドの生成から start/join による制御、interrupt による安全な中断まで実務で必要な基本操作を整理した。Java 21 の仮想スレッド（Virtual Threads）との違いも取り上げるので、今後のコード選択の判断材料にしてほしい。",
+  lead: "スレッドが絡む不具合は、再現させることがいちばん難しい――本番でだけ重なるタイミングは、テストでは一度も出ないものです。だからこそ、start() と run() の違い、join のタイムアウト、interrupt の流儀といった基本を最初に正確に押さえておくことが、後のデバッグ時間を大きく左右します。Java でスレッドを作る方法は Thread 継承・Runnable 実装・ラムダ式の3パターンあり、どれを選ぶかで保守性とテストのしやすさが変わります。この記事ではスレッドの生成から start/join による制御、interrupt による安全な中断までを、実行して動きを確かめられるコードで整理します。Java 21 の仮想スレッド（Virtual Threads）との違いにも触れ、今後の選択の判断材料を示します。",
   useCases: [
     "バッチ処理で複数ファイルの取り込みを並列化し、全スレッドの完了を join で待ち合わせる",
     "ログ出力や通知送信を別スレッドに委譲し、メイン処理のレスポンスタイムを短縮する",
@@ -105,11 +105,25 @@ vt.join();`,
 
         System.out.println("全スレッド完了");
 
+        // interrupt: 眠っているスレッドを安全に止める
+        var sleeper = new Thread(() -> {
+            try {
+                Thread.sleep(60_000); // 外部応答待ちを想定した長い sleep
+                System.out.println("ここには到達しない");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // フラグを再セットしてから抜ける
+                System.out.println("[sleeper] 割り込みで中断");
+            }
+        }, "sleeper");
+        sleeper.start();
+        sleeper.interrupt();  // sleep 中のスレッドには即座に InterruptedException が飛ぶ
+        sleeper.join(1000);   // タイムアウト付き join。相手が固まっても無限待ちにならない
+        System.out.println("sleeper 生存: " + sleeper.isAlive()); // false
+
         // スレッド情報の確認
         var current = Thread.currentThread();
         System.out.println("メインスレッド名: " + current.getName());
         System.out.println("デーモン: " + current.isDaemon());
-        System.out.println("優先度: " + current.getPriority());
     }
 }`,
 },
@@ -788,7 +802,7 @@ public class DeadlockDetectionDemo {
   tags: ["ExecutorService", "Future", "スレッドプール", "Callable", "shutdown"],
   apiNames: ["ExecutorService", "Executors.newFixedThreadPool", "Executors.newCachedThreadPool", "Future.get", "ExecutorService.shutdown"],
   description: "Java の ExecutorService によるスレッドプール管理と Future のタイムアウト付き取得を解説する。Java 21 の仮想スレッドプールにも対応。",
-  lead: "Thread を直接 new してタスクごとに生成・破棄すると、スレッド生成のオーバーヘッドが無視できなくなり、同時実行数の制御も困難です。ExecutorService はスレッドプールを管理し、タスクの投入と結果の取得を分離する仕組みを提供します。固定サイズのプール、キャッシュプール、シングルスレッドプールなど用途別のファクトリが用意されており、タスクの結果は Future を通じてタイムアウト付きで取得できます。各プールの特性と使い分け、shutdown の正しいタイミング、Future.get のタイムアウト制御まで、業務で頻出するパターンに絞って整理した。",
+  lead: "スレッドプールまわりで繰り返し見てきた不具合は3つに集約されます。shutdown() の呼び忘れでバッチが終わらない、newCachedThreadPool に大量タスクを流し込んでスレッドが際限なく増える、そして Future を握りつぶしてタスク内の例外に誰も気づかない。ExecutorService はスレッドの生成・破棄をプールに任せ、タスクの投入と結果の取得を分離してくれる仕組みですが、この3点を外すと「動いているように見えて壊れている」状態になります。この記事では固定プールとキャッシュプールの使い分け、Future.get のタイムアウト制御、タスク内の例外がどの時点で顔を出すかを、実行できるコードで確認します。Java 21 の仮想スレッドプールにも触れます。",
   useCases: [
     "帳票生成バッチでスレッドプールサイズを固定し、DB コネクション数の上限を超えないよう並列度を制御する",
     "外部 API への並列呼び出しを ExecutorService に投入し、Future.get でタイムアウト付きで結果を集約する",
@@ -892,6 +906,21 @@ public class ExecutorServiceDemo {
             }
         } finally {
             timeoutExecutor.shutdown();
+        }
+
+        System.out.println("\\n=== タスク内の例外は get() まで見えない ===");
+        var errExecutor = Executors.newSingleThreadExecutor();
+        try {
+            var future = errExecutor.submit(() -> Integer.parseInt("abc"));
+            // submit 時点では何も起きない。結果を取りに行って初めて例外が顔を出す
+            try {
+                future.get();
+            } catch (ExecutionException e) {
+                System.out.println("get() で検知: " + e.getCause());
+                // get() で検知: java.lang.NumberFormatException: For input string: "abc"
+            }
+        } finally {
+            errExecutor.shutdown();
         }
     }
 }`,

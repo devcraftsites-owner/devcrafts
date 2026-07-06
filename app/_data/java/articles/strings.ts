@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["null安全", "NullPointerException", "Optional", "isBlank"],
     apiNames: ["Objects.toString", "String.isBlank", "String.isEmpty", "Optional.ofNullable"],
     description: "Java で文字列の null・空文字・空白を安全に扱うための実装パターンを外部ライブラリ不要の Pure Java で Java 8/17/21 対応で整理する。",
-    lead: "Java の文字列処理で最も頻繁に遭遇するトラブルが NullPointerException です。データベースから取得した値、外部 API のレスポンス、画面入力のパラメータなど、null が紛れ込む経路は多岐にわたります。加えて、空文字 \"\" とスペースだけの文字列 \"   \" を区別すべき場面も少なくありません。Objects.toString によるデフォルト値の設定、定数を左辺に置く equals の書き方、Java 11 以降の isBlank と isEmpty の使い分け、Optional を活用したチェーン処理といった実装パターンを整理した。Java 8 から Java 21 の switch 式でのヌルハンドリングまで、バージョンごとの書き方の違いも押さえている。",
+    lead: "本番のエラーログで最も多く目にする例外は、結局のところ NullPointerException です。DB の NULL 列、外部 API の欠落フィールド、画面から飛んでくる未入力パラメータ――null の入り口はコードの外側にあり、防ぐ場所は文字列を受け取った直後の一行に集約されます。加えて日本語の業務データでは、空文字 \"\" と全角スペースだけの \"　\" を同じ「未入力」として扱うかどうかという判断もついて回ります。この記事では Objects.toString によるデフォルト値、定数を左辺に置く equals、isBlank と isEmpty の使い分け（isBlank は全角スペースも検出します）、Optional のチェーン処理を、実行結果つきのコードで整理します。Java 21 の switch 式による case null の分岐まで、バージョン差も押さえます。",
     useCases: [
       "CSV 取込時に空欄・空白のみのセルを一律 null として正規化し、後続の業務ロジックで NullPointerException を防ぐ",
       "画面入力のフォームで氏名・住所などの必須項目に対し、null・空文字・全角スペースのみを同一視してバリデーションする",
@@ -100,9 +100,10 @@ public class NullSafeStringHandler {
         System.out.println(blankToDefault(null, "未入力"));     // 未入力
         System.out.println(blankToDefault("", "未入力"));       // 未入力
         System.out.println(blankToDefault("  ", "未入力"));     // 未入力
+        System.out.println(blankToDefault("\\u3000", "未入力")); // 未入力（isBlank は全角スペースも空白と判定）
         System.out.println(blankToDefault("山田", "未入力"));   // 山田
 
-        // null 安全な比較
+        // null 安全な比較。variable.equals("admin") と書くと variable が null のとき落ちる
         System.out.println(safeEquals("admin", null));          // false
         System.out.println(safeEquals("admin", "admin"));       // true
 
@@ -242,7 +243,7 @@ String padded = "0".repeat(Math.max(0, 5 - "42".length())) + "42";`,
     tags: ["正規表現", "Pattern", "Matcher", "バリデーション", "キャプチャグループ"],
     apiNames: ["Pattern.compile", "Matcher.matches", "Matcher.find", "Matcher.group", "Pattern.asMatchPredicate"],
     description: "Java の正規表現（Pattern / Matcher）を使った業務バリデーションと文字列抽出を外部ライブラリ不要の Pure Java で Java 8/17/21 対応で解説する。",
-    lead: "メールアドレス、電話番号、郵便番号など、業務システムではフォーマットの検証が日常的に発生します。Java の正規表現は Pattern と Matcher のペアで扱いますが、Pattern.compile のコストを意識せずにメソッド内で毎回コンパイルしているコードや、matches と find の違いを把握しないまま意図しない判定をしているコードは実務でもよく見かけます。Pattern を static final で保持する基本設計から、名前付きキャプチャグループによる可読性向上、asMatchPredicate を使った Stream 連携まで、業務で即使える正規表現パターンを整理した。Java 8 の書き方から Java 21 の switch 式を活用した分岐まで、バージョンごとの書き方も示す。",
+    lead: "「テストでは通ったのに、本番で正しいはずの入力が弾かれる」――正規表現まわりの不具合は、パターンそのものの誤りより、matches と find の取り違えや、ループ内で毎回 Pattern.compile している性能劣化として現れることが多いものです。matches は文字列全体の一致、find は部分一致。この一行の違いを取り違えると、形式チェックのつもりが部分一致で素通りします。この記事では Pattern を static final で保持する基本設計から、名前付きキャプチャグループによる可読性向上、asMatchPredicate を使った Stream 連携まで、メール・電話番号・郵便番号の検証を題材に整理します。境界値（ハイフンなし・桁ずれ）が正しく弾かれることも実行結果で確認します。",
     useCases: [
       "会員登録フォームでメールアドレス・電話番号・郵便番号の形式を正規表現で即時バリデーションする",
       "帳票データや自由入力テキストから日付文字列（yyyy/mm/dd）を抽出し、名前付きキャプチャグループで年月日に分解する",
@@ -374,7 +375,14 @@ public class RegexValidator {
         System.out.println(isValidEmail("user@example.com"));   // true
         System.out.println(isValidEmail("invalid@"));           // false
         System.out.println(isValidPhone("03-1234-5678"));       // true
+        System.out.println(isValidPhone("0312345678"));         // false（ハイフンなしは別書式として扱う）
         System.out.println(isValidZip("123-4567"));             // true
+        System.out.println(isValidZip("1234-567"));             // false（桁の区切りが不正）
+
+        // matches と find の違い: 形式チェックに find を使うと部分一致で素通りする
+        var stray = "備考: 03-1234-5678 に連絡";
+        System.out.println(PHONE_PATTERN.matcher(stray).matches()); // false（全体は電話番号ではない）
+        System.out.println(PHONE_PATTERN.matcher(stray).find());    // false（^ と $ があるため。アンカーなしなら true になる）
 
         String text = "納期は2024/04/01から2024/06/30までです。";
         System.out.println(extractFirstDate(text));             // 2024年04月01日

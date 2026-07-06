@@ -263,7 +263,7 @@ public class FileIoBasics {
     tags: ["CSV", "ファイルI/O", "パーサー", "ストリーム処理", "データ取込"],
     apiNames: ["Files.readAllLines", "Files.write", "Files.lines", "StandardCharsets", "Path"],
     description: "Java 標準 API で CSV ファイルの読み書きとダブルクォート対応のパースを実装する方法を、ストリーム処理を含めて Java 8/17/21 対応で解説する。",
-    lead: "CSV はシステム間のデータ連携、マスタ一括登録、帳票用データの受け渡しなど、業務システムでもっとも頻繁に扱うファイル形式のひとつです。一見単純なフォーマットですが、フィールド内にカンマを含む場合のダブルクォート対応、ヘッダー行の扱い、大容量ファイルのメモリ効率など、実務では意外と考慮点が多くなります。標準 API だけで CSV の読み書きと簡易パースを実装し、大容量ファイルにも対応できる Files.lines() によるストリーム処理まで整理した。",
+    lead: "取込バッチが月に一度だけ落ちる。調べてみると、原因は住所欄にカンマが入った1行だった――split(\",\") だけの CSV パースは、いつか必ずこの形で壊れます。フィールド内カンマのダブルクォート対応、Excel 出力に付く BOM、CRLF と LF の混在と、CSV の考慮点は現物のファイルを受け取ってから見えてくるものが多いのが実情です。この記事では標準 API だけで CSV の読み書きとダブルクォート対応の簡易パーサーを実装し、大容量ファイル向けの Files.lines() によるストリーム処理まで整理します。カンマ入りフィールドが正しく分割されることを実行結果で確認し、自前パーサーで扱える範囲と Apache Commons CSV に切り替えるべき境目も示します。",
     useCases: [
       "経理部門が用意した商品マスタの CSV を読み込み、DB に一括登録する",
       "月次売上データを CSV で出力し、他システムや Excel との連携に使う",
@@ -316,6 +316,11 @@ try (var stream = Files.lines(path, StandardCharsets.UTF_8)) {
     ],
     codeTitle: "CSV の読み書きとダブルクォート対応パーサー",
     codeSample: `import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CsvReadWrite {
 
@@ -353,7 +358,8 @@ public class CsvReadWrite {
         var csvLines = List.of(
             "name,price,category",
             "apple,100,fruit",
-            "\\"milk, low-fat\\",200,dairy"
+            "\\"milk, low-fat\\",200,dairy",              // フィールド内にカンマ
+            "\\"deluxe \\"\\"gift\\"\\" set\\",3000,misc" // 二重引用符のエスケープ
         );
 
         var tempFile = Files.createTempFile("sample", ".csv");
@@ -364,6 +370,9 @@ public class CsvReadWrite {
             var fields = parseCsvLine(line);
             System.out.println("name=" + fields[0] + ", price=" + fields[1]);
         });
+        // name=apple, price=100
+        // name=milk, low-fat, price=200        ← カンマ入りでも分割は3フィールドのまま
+        // name=deluxe gift set, price=3000     ← "" の引用符自体は消える（簡易実装の割り切り）
 
         try (var stream = Files.lines(tempFile, StandardCharsets.UTF_8)) {
             stream.skip(1)
@@ -585,7 +594,7 @@ public class NioFileOperations {
     tags: ["JSON", "Jackson", "ObjectMapper", "シリアライズ", "デシリアライズ"],
     apiNames: ["ObjectMapper", "JsonNode", "JsonProperty", "ObjectMapper.readValue", "ObjectMapper.writeValueAsString"],
     description: "Jackson の ObjectMapper を使った JSON のシリアライズ・デシリアライズを、record 対応やネスト構造のツリー操作を含めて Java 8/17/21 対応で解説する。",
-    lead: "REST API との連携、設定ファイルの読み書き、ログ出力のフォーマットなど、JSON を扱う場面は業務システムでも増え続けています。Java 標準 API には JSON パーサーが含まれていないため、多くのプロジェクトでは Jackson を使うことになります。ObjectMapper の基本的な使い方は簡単ですが、record との組み合わせ、ネスト構造の安全なアクセス、未知フィールドへの対処など、実務で迷いやすいポイントが散在しています。Jackson の ObjectMapper を軸に、シリアライズ・デシリアライズの基本パターンからツリー操作、配列やリストの変換まで整理した。",
+    lead: "外部 API 連携が本番稼働して数ヶ月、先方がレスポンスにフィールドを1つ追加した途端に取込が全件エラーになる――Jackson の UnrecognizedPropertyException は、この形で障害になりやすい例外です。Java 標準 API には JSON パーサーが含まれないため、多くのプロジェクトでは Jackson の ObjectMapper を使うことになります。readValue / writeValueAsString の基本は簡単ですが、record との組み合わせ、未知フィールドへの備え、ネスト構造を辿るときの get() と path() の違いなど、判断の要るポイントが散在しています。この記事ではシリアライズ・デシリアライズの基本から、フィールドが増えたとき実際に何が起きるかの失敗例と @JsonIgnoreProperties による回避までを、動くコードで整理します。",
     useCases: [
       "外部 API のレスポンス JSON を Java オブジェクトにマッピングして業務ロジックで使う",
       "DB から取得したデータを JSON 形式に変換してフロントエンドに返す",
@@ -645,11 +654,23 @@ String result = switch (response) {
       { question: "ネスト構造の JSON で特定の値だけ取りたい場合は。", answer: "ObjectMapper.readTree() で JsonNode を取得し、path(\"key\").path(\"nested\").asText() のようにチェーンで辿れます。" },
     ],
     codeTitle: "Jackson による JSON シリアライズ・デシリアライズ",
-    codeSample: `import com.fasterxml.jackson.annotation.JsonProperty;
+    codeSample: `import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import java.util.List;
 
 public class JsonParsing {
 
     record Person(
+        @JsonProperty("name") String name,
+        @JsonProperty("age") int age
+    ) {}
+
+    // 外部 API のレスポンス用: 知らないフィールドが増えても壊れない
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record TolerantPerson(
         @JsonProperty("name") String name,
         @JsonProperty("age") int age
     ) {}
@@ -660,7 +681,7 @@ public class JsonParsing {
 
         var person = new Person("山田太郎", 30);
         var json = MAPPER.writeValueAsString(person);
-        System.out.println("JSON: " + json);
+        System.out.println("JSON: " + json); // JSON: {"name":"山田太郎","age":30}
 
         var input = """
                 {"name":"鈴木花子","age":25}
@@ -668,11 +689,26 @@ public class JsonParsing {
         var parsed = MAPPER.readValue(input, Person.class);
         System.out.println("オブジェクト: " + parsed);
 
+        // 失敗例: 先方がフィールドを追加した後のレスポンス
+        var extended = """
+                {"name":"高橋","age":40,"dept":"開発"}
+                """;
+        try {
+            MAPPER.readValue(extended, Person.class);
+        } catch (UnrecognizedPropertyException e) {
+            System.out.println("未知フィールドで失敗: " + e.getPropertyName()); // 未知フィールドで失敗: dept
+        }
+        // ignoreUnknown = true の型なら同じ JSON がそのまま通る
+        System.out.println("許容版: " + MAPPER.readValue(extended, TolerantPerson.class));
+
         var nested = """
                 {"id":1,"address":{"city":"Tokyo","zip":"100-0001"}}
                 """;
         JsonNode root = MAPPER.readTree(nested);
         System.out.println("city: " + root.path("address").path("city").asText());
+        // 存在しないキーでも path() なら MissingNode で受け流せる
+        System.out.println("country: " + root.path("address").path("country").asText("N/A")); // country: N/A
+        // root.get("address").get("country").asText() と書くと get("country") が null を返し NPE
 
         var arrayJson = """
                 [{"name":"田中","age":20},{"name":"佐藤","age":35}]
@@ -956,7 +992,7 @@ public class FixedLengthRecords {
     tags: ["全銀", "振込", "固定長", "バッチ", "金融", "全銀フォーマット", "JIS X 0201"],
     apiNames: ["String.format", "StringBuilder", "Charset.forName", "String.getBytes", "Files.write", "Path"],
     description: "全銀フォーマット（総合振込）の120バイト固定長レコードを Java 標準 API で生成する方法を、ヘッダ・データ・トレーラ・エンドの4種別構成で Java 8/17/21 対応で解説する。",
-    lead: "固定長フォーマットとは、各フィールドが仕様書で決められたバイト数を占め、短い場合はスペースやゼロで埋めるデータ交換形式です。CSV のようにデリミタで区切る可変長形式と異なり、バイト位置だけでフィールドを特定できるため、汎用機・ホストコンピュータとのデータ連携で長く使われてきました。全銀フォーマットもこの固定長形式を採用しており、すべてのレコードが120バイト固定長である点が最大の特徴です。フォーマットはヘッダ（レコード区分1）、データ（区分2）、トレーラ（区分8）、エンド（区分9）の4種別で構成され、文字コードは JIS X 0201（半角カナ・英数字）、エンコーディングには Shift_JIS を使用します。数値フィールドは右詰めゼロ埋め、文字フィールドは左詰めスペース埋めという規則があり、1バイトでもずれると銀行側で受付エラーになります。ただし、全銀協の標準仕様はあくまで共通の骨格です。使用可能な文字セットの細部、データレコードの振込区分・EDI情報フィールドの値、レコード間の改行コードの有無など、実装上の重要な挙動は銀行ごとに異なります。特に新規コード対応以降は銀行が個別に要求する内容が増えており、実装前に必ず対象銀行のフォーマット仕様書を入手することが前提です。全銀仕様書に基づいたレコード生成処理を Pure Java で実装し、フィールドごとのバイト長・パディング規則・よくある実装ミスを整理した。トレーラの合計件数・合計金額によるデータ整合性チェックの仕組みも含め、実務でそのまま使える形に仕上げている。",
+    lead: "固定長フォーマットとは、各フィールドが仕様書で決められたバイト数を占め、短い場合はスペースやゼロで埋めるデータ交換形式です。CSV のようにデリミタで区切る可変長形式と異なり、バイト位置だけでフィールドを特定できるため、汎用機・ホストコンピュータとのデータ連携で長く使われてきました。全銀フォーマットもこの固定長形式を採用しており、すべてのレコードが120バイト固定長である点が最大の特徴です。フォーマットはヘッダ（レコード区分1）、データ（区分2）、トレーラ（区分8）、エンド（区分9）の4種別で構成され、文字コードは JIS X 0201（半角カナ・英数字）、エンコーディングには Shift_JIS を使用します。数値フィールドは右詰めゼロ埋め、文字フィールドは左詰めスペース埋めという規則があり、1バイトでもずれると銀行側で受付エラーになります。ただし、全銀協の標準仕様はあくまで共通の骨格です。使用可能な文字セットの細部、データレコードの振込区分・EDI情報フィールドの値、レコード間の改行コードの有無など、実装上の重要な挙動は銀行ごとに異なります。特に新規コード対応以降は銀行が個別に要求する内容が増えており、実装前に必ず対象銀行のフォーマット仕様書を入手することが前提です。この記事では全銀仕様書に基づいたレコード生成処理を Pure Java で実装し、フィールドごとのバイト長・パディング規則・よくある実装ミスを整理します。トレーラの合計件数・合計金額によるデータ整合性チェックの仕組みも含め、実務でそのまま使える形にまとめます。",
     useCases: [
       "月次の総合振込データを基幹システムから生成し、銀行のファームバンキングへ送信する",
       "給与振込バッチで従業員の口座情報と支給額を全銀フォーマットに変換する",
@@ -1257,7 +1293,7 @@ public class ZenginFormatGenerator {
     tags: ["ZEDI", "全銀EDI", "XML", "振込付帯情報", "金融", "ISO 20022", "DOM", "StAX"],
     apiNames: ["DocumentBuilderFactory", "XMLStreamReader", "XMLInputFactory", "Transformer", "Element", "Document", "NodeList", "InputSource"],
     description: "Java 標準 API の DOM・StAX で ZEDI（全銀EDIシステム）の XML 電文を生成・パースする方法を、名前空間・XXE 対策・バージョン差分を含めて解説する。",
-    lead: "ZEDI（全銀EDIシステム）は、2018年に稼働を開始した XML ベースの金融EDI基盤です。従来の全銀フォーマットでは振込データに付帯できる情報が限られていましたが、ZEDI では ISO 20022 に準拠した XML メッセージフォーマットを採用し、請求書番号・支払通知番号・明細情報といった商取引に関わる付帯情報を振込データとあわせて送受信できるようになりました。企業間の売掛金消込や入金照合の自動化を推進するための仕組みであり、全国銀行協会が技術仕様書を公開しています。ZEDI の XML 電文を Java 標準 API（DOM / StAX）で生成・パースする方法を整理した。名前空間の扱い、XXE 対策、文字コードの指定、スキーマ検証の要否といった実装上の注意点を押さえつつ、振込付帯情報の読み書きを業務で使える形にまとめている。ISO 20022 の pain.001（振込指図）メッセージ構造に沿って、RmtInf（付帯情報）ブロックの組み立てとパースに焦点を当てる。",
+    lead: "ZEDI（全銀EDIシステム）は、2018年に稼働を開始した XML ベースの金融EDI基盤です。従来の全銀フォーマットでは振込データに付帯できる情報が限られていましたが、ZEDI では ISO 20022 に準拠した XML メッセージフォーマットを採用し、請求書番号・支払通知番号・明細情報といった商取引に関わる付帯情報を振込データとあわせて送受信できるようになりました。企業間の売掛金消込や入金照合の自動化を推進するための仕組みであり、全国銀行協会が技術仕様書を公開しています。この記事では ZEDI の XML 電文を Java 標準 API（DOM / StAX）で生成・パースする方法を整理します。名前空間の扱い、XXE 対策、文字コードの指定、スキーマ検証の要否といった実装上の注意点を押さえつつ、振込付帯情報の読み書きを業務で使える形にまとめます。ISO 20022 の pain.001（振込指図）メッセージ構造に沿って、RmtInf（付帯情報）ブロックの組み立てとパースに焦点を当てます。",
     useCases: [
       "振込データに請求書番号を付帯し、受取側で売掛金の自動消込に利用する",
       "取引先から受信した ZEDI 電文をパースし、支払通知番号をもとに入金と請求の自動照合を行う",
@@ -1616,7 +1652,7 @@ public class ZenginEdiSample {
     tags: ["全銀", "文字セット", "JIS X 0201", "半角カナ", "バリデーション", "文字変換", "振込", "金融システム"],
     apiNames: ["String", "StringBuilder", "Map.ofEntries", "Map.entry", "Map.copyOf", "Character"],
     description: "全銀フォーマットの文字セット（JIS X 0201 片仮名・半角英数字・記号）のバリデーションと全角→半角カナ変換を Java 標準 API だけで実装する方法を Java 8/17/21 対応で解説する。",
-    lead: "銀行間の振込データを扱う全銀フォーマットでは、使用できる文字が JIS X 0201 片仮名用図形文字集合に基づく厳格な範囲に制限されています。許容されるのは半角カナ（ｱ-ﾝ、濁点ﾞ、半濁点ﾟ）、半角英大文字（A-Z）、半角数字（0-9）、および一部の半角記号（スペース、括弧、ハイフン、ピリオド、スラッシュなど）のみです。この制限を満たさない文字を含む振込データを送信すると、銀行システムが受け付けずに振込が失敗します。実務では、画面入力やCSV取込で全角カナや全角英数字が混入するケースが日常的に発生するため、全角→半角の変換処理と禁則文字の検出を事前に行う必要があります。全銀フォーマットの許容文字判定、全角カナから半角カナへの変換テーブル（濁音・半濁音の2文字分解を含む）、禁則文字の検出とレポートを Pure Java で実装した。全国銀行協会の仕様書に基づく文字セット定義と、Shift_JIS（JIS X 0208）との対応関係も整理している。",
+    lead: "銀行間の振込データを扱う全銀フォーマットでは、使用できる文字が JIS X 0201 片仮名用図形文字集合に基づく厳格な範囲に制限されています。許容されるのは半角カナ（ｱ-ﾝ、濁点ﾞ、半濁点ﾟ）、半角英大文字（A-Z）、半角数字（0-9）、および一部の半角記号（スペース、括弧、ハイフン、ピリオド、スラッシュなど）のみです。この制限を満たさない文字を含む振込データを送信すると、銀行システムが受け付けずに振込が失敗します。実務では、画面入力やCSV取込で全角カナや全角英数字が混入するケースが日常的に発生するため、全角→半角の変換処理と禁則文字の検出を事前に行う必要があります。この記事では全銀フォーマットの許容文字判定、全角カナから半角カナへの変換テーブル（濁音・半濁音の2文字分解を含む）、禁則文字の検出とレポートを Pure Java で実装します。全国銀行協会の仕様書に基づく文字セット定義と、Shift_JIS（JIS X 0208）との対応関係も整理します。",
     useCases: [
       "振込依頼人名（カナ）のバリデーション: 画面入力された全角カナを半角カナに変換し、全銀許容文字のみで構成されているか検証する",
       "受取人名の全角→半角変換: 取引先マスタに登録された全角カタカナの受取人名を、全銀フォーマット送信用の半角カナに一括変換する",

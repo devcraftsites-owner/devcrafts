@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
     tags: ["パスワード", "ハッシュ", "PBKDF2", "ソルト", "セキュリティ"],
     apiNames: ["SecretKeyFactory", "PBEKeySpec", "SecureRandom", "MessageDigest.isEqual"],
     description: "Java 標準 API の PBKDF2WithHmacSHA256 でパスワードハッシュを生成・検証する方法を、タイミング攻撃対策も含めて Java 8/17/21 対応で解説する。",
-    lead: "パスワードの保存は、業務システムでもっとも慎重に扱うべき処理の一つです。平文保存はもちろん、MD5 や SHA-256 の単純ハッシュも GPU による総当たり攻撃に対して実質的な防御になりません。OWASP が推奨するのは、ソルト付きのストレッチングハッシュ（PBKDF2・bcrypt・scrypt・Argon2 など）です。Java では PBKDF2WithHmacSHA256 が標準 API だけで使えるため、外部ライブラリなしで安全なパスワードハッシュを実装できます。ソルトの生成、ハッシュの計算、パスワード検証の一連の流れを実装した。タイミング攻撃を防ぐ定数時間比較や、パスワード文字列のメモリクリアといった実務上見落としやすいポイントも整理している。",
+    lead: "パスワードの保存は、業務システムでもっとも慎重に扱うべき処理の一つです。平文保存はもちろん、MD5 や SHA-256 の単純ハッシュも GPU による総当たり攻撃に対して実質的な防御になりません。OWASP が推奨するのは、ソルト付きのストレッチングハッシュ（PBKDF2・bcrypt・scrypt・Argon2 など）です。Java では PBKDF2WithHmacSHA256 が標準 API だけで使えるため、外部ライブラリなしで安全なパスワードハッシュを実装できます。この記事ではソルトの生成、ハッシュの計算、パスワード検証の一連の流れを実装します。タイミング攻撃を防ぐ定数時間比較（MessageDigest.isEqual）や、PBEKeySpec のメモリクリアといった、レビューでも見落とされやすいポイントもあわせて整理します。",
     useCases: [
       "社内システムのユーザー登録画面で、入力されたパスワードを PBKDF2 でハッシュ化してデータベースに保存する",
       "ログイン認証時に入力パスワードのハッシュと保存済みハッシュを定数時間比較で照合する",
@@ -121,9 +121,14 @@ public class PasswordHashingExample {
                 Base64.getEncoder().encodeToString(result.hash()));
 
         // 検証
-        System.out.println("正しい: " + verify(password, result));
+        System.out.println("正しい: " + verify(password, result));           // 正しい: true
         System.out.println("誤り:   " +
-                verify("wrong".toCharArray(), result));
+                verify("wrong".toCharArray(), result));                       // 誤り:   false
+
+        // 同じパスワードでもソルトが違えばハッシュは別物になる
+        var result2 = hashNewPassword("MySecureP@ssw0rd".toCharArray());
+        System.out.println("ハッシュ再生成の一致: " +
+                MessageDigest.isEqual(result.hash(), result2.hash()));        // false
     }
 }`,
   },

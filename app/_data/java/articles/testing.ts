@@ -10,7 +10,7 @@ export const articles: JavaArticleDetail[] = [
   tags: ["JUnit 5", "テスト", "@Test", "@ParameterizedTest", "@Nested", "assertThrows"],
   apiNames: ["org.junit.jupiter.api.Test", "org.junit.jupiter.api.BeforeEach", "org.junit.jupiter.api.Nested", "org.junit.jupiter.api.DisplayName", "org.junit.jupiter.params.ParameterizedTest", "org.junit.jupiter.params.provider.CsvSource", "Assertions.assertEquals", "Assertions.assertThrows", "Assertions.assertAll"],
   description: "JUnit 5 の @Test、@ParameterizedTest、@Nested、assertThrows などの基本アノテーションをサンプルコード付きで Java 8/17/21 対応で解説する。",
-  lead: "テストコードは書けるけれど「何をどこまでテストすべきか」で毎回迷う、JUnit 4 から 5 への移行で何が変わったのか整理できていない――そんな声は現場で少なくありません。JUnit 5 は Jupiter エンジンの導入により、アノテーション体系が刷新され、@DisplayName による日本語テスト名、@Nested によるグループ化、@ParameterizedTest による表形式テストなど、実務で使いやすい機能が揃いました。Calculator クラスを題材に、基本アノテーションの使い方、例外テスト（assertThrows）、複数アサーションの一括検証（assertAll）、パラメータ化テストまで整理した。テスト設計のコツとして Given-When-Then パターンにも触れ、読みやすく保守しやすいテストコードを書くための実践的な指針を示す。",
+  lead: "テストコードは書けるけれど「何をどこまでテストすべきか」で毎回迷う、JUnit 4 から 5 への移行で何が変わったのか整理できていない――そんな声は現場で少なくありません。JUnit 5 は Jupiter エンジンの導入により、アノテーション体系が刷新され、@DisplayName による日本語テスト名、@Nested によるグループ化、@ParameterizedTest による表形式テストなど、実務で使いやすい機能が揃いました。この記事では Calculator クラスを題材に、基本アノテーションの使い方、例外テスト（assertThrows）、複数アサーションの一括検証（assertAll）、パラメータ化テストまでを整理します。テスト設計のコツとして Given-When-Then パターンにも触れ、読みやすく保守しやすいテストコードを書くための実践的な指針を示します。",
   useCases: [
     "新規開発のビジネスロジック（消費税計算、割合計算など）に対し、JUnit 5 のパラメータ化テストで境界値を網羅する",
     "既存の JUnit 4 テストを JUnit 5 に移行し、@Nested と @DisplayName でテストの構造と可読性を改善する",

@@ -143,7 +143,7 @@ public class LoggingBasicsExample {
     tags: ["例外", "例外チェーン", "getCause", "カスタム例外", "障害調査"],
     apiNames: ["Throwable.getCause", "Exception", "Logger.log"],
     description: "Java の例外チェーンを使ったレイヤー間の例外ラップと原因追跡の実装パターンを、ログ設計も含めて外部ライブラリ不要で Java 8/17/21 対応で解説する。",
-    lead: "業務システムでは、DB 層で発生した SQLException をサービス層で ServiceException にラップし、さらにコントローラー層で適切なエラーレスポンスに変換する、というレイヤードな例外設計が一般的です。このとき、原因例外（cause）を保持しないままラップすると、障害調査で根本原因にたどり着けなくなります。Java の例外チェーン機構は、Throwable のコンストラクタに cause を渡すことで、例外の因果関係をスタックトレースに残す仕組みです。カスタム例外の定義方法、cause の正しい渡し方、getCause() でチェーンを辿って原因を特定するコード、例外をログに記録する際の注意点を整理した。e.printStackTrace() を使ってはいけない理由や、例外を握りつぶすアンチパターンについても取り上げる。",
+    lead: "業務システムでは、DB 層で発生した SQLException をサービス層で ServiceException にラップし、さらにコントローラー層で適切なエラーレスポンスに変換する、というレイヤードな例外設計が一般的です。このとき、原因例外（cause）を保持しないままラップすると、障害調査で根本原因にたどり着けなくなります。Java の例外チェーン機構は、Throwable のコンストラクタに cause を渡すことで、例外の因果関係をスタックトレースに残す仕組みです。この記事ではカスタム例外の定義方法、cause の正しい渡し方、getCause() でチェーンを辿って原因を特定するコード、例外をログに記録する際の注意点を整理します。e.printStackTrace() を使ってはいけない理由や、例外を握りつぶすアンチパターンについても取り上げます。",
     useCases: [
       "DB アクセス層で発生した SQLException を DataAccessException にラップし、サービス層に業務レベルのエラーとして伝播する",
       "障害発生時にログから例外チェーンを辿り、ServiceException → DataAccessException → SQLException という因果関係を追跡する",
