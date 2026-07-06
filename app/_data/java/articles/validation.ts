@@ -11,21 +11,21 @@ export const articles: JavaArticleDetail[] = [
     apiNames: ["BigDecimal", "RoundingMode"],
     toolSlug: "tax-calculator",
     description: "Java の BigDecimal で消費税計算を実装し、四捨五入・切り捨てなど端数処理の違いを外部ライブラリ不要の Pure Java で Java 8/17/21 対応で解説する。",
-    lead: "消費税計算は金額を扱うシステムで必ず必要になる処理ですが、端数処理の方式（四捨五入、切り捨て、切り上げ）によって1円の差が生まれます。double や float では誤差が避けられないため、業務用途では BigDecimal を使うのが鉄則です。税抜から税込への変換、税込から税抜への逆算、軽減税率（8%）と標準税率（10%）の使い分けを BigDecimal で実装した。RoundingMode の選び方と、明細と合計で端数処理のタイミングが異なる場合の対応も整理している。",
+    lead: "消費税計算のバグは、金額が大きくずれるのではなく「1円だけ合わない」形で現れます。明細ごとに税額を切り捨てて合算した金額と、合計に対して一度だけ税率を掛けた金額は一致しないことがあり、経理部門からの「請求書の合計が合わない」という問い合わせの多くはこれが原因です。さらに double で計算していると、そもそも 0.1 を2進数で正確に表現できないため、端数処理以前の段階で誤差が混入します。この記事では、BigDecimal を使った税抜・税込の相互変換を基本に、RoundingMode の選び方、軽減税率（8%）と標準税率（10%）の混在、明細単位か合計単位かという端数処理の設計判断までを整理します。",
     useCases: [
-      "請求書の明細行ごとに消費税を計算し、合計金額と突き合わせる",
-      "POS レジで税込表示価格から税抜金額を逆算する",
-      "軽減税率対象商品と標準税率商品を混在して合計する",
+      "販売管理システムで、明細行ごとに税率（8%/10%）を判定して税額を計算し、税率別の小計欄を作る",
+      "税込 1,980 円の商品について、経理仕訳用に税抜金額と消費税額を逆算する",
+      "見積書の合計欄の端数処理を「明細ごと切り捨て」に統一し、再計算チェックを通す",
     ],
     cautions: [
-      "BigDecimal の生成には new BigDecimal('0.1') のように文字列を使うこと。double リテラルは誤差が入る。",
+      "BigDecimal の生成には new BigDecimal(\"0.1\") のように文字列を使うこと。double リテラルは誤差が入る。",
       "端数処理のタイミング（明細ごとか合計か）は取引先との合意に依存する。",
       "税率は法改正で変わる可能性があるため、定数管理を推奨する。",
       "現場では「請求書の合計が明細の税込小計の合算とずれる」という問題が頻発する。明細ごとに切り捨てか、合計に対して一括で端数処理するかを設計段階で決め、テストデータに端数が出るケースを含めておくこと。",
     ],
     relatedArticleSlugs: ["unit-conversion", "percentage-calculation"],
     versionCoverage: {
-      java8: "BigDecimal と RoundingMode は Java 8 から使用可能。税込み計算のメソッド化も同じ書き方でできる。",
+      java8: "BigDecimal と RoundingMode は Java 8 でもそのまま使える。税込み計算のメソッド化も同じ書き方でできる。",
       java17: "switch 式で商品種別による税率の切り替えが簡潔になる。record で金額と税額をまとめると可読性が上がる。",
       java21: "record で商品情報を型として表現し、明細ごとの税率判定と税込み計算を組み合わせて簡潔に記述できる。",
       java8Code: `// Java 8: 税込み計算（if-else で税率を切り替え）
@@ -67,9 +67,9 @@ for (var item : items) {
       { name: "Apache Commons Math", whenToUse: "高精度の数値演算や統計計算が併せて必要な場合。", tradeoff: "消費税計算だけなら BigDecimal で十分。依存に見合うかはプロジェクト規模による。" },
     ],
     faq: [
-      { question: "なぜ double ではなく BigDecimal を使うのですか？", answer: "double は2進浮動小数点のため、0.1 を正確に表現できず、金額計算で1円の誤差が生じます。" },
-      { question: "切り捨てと四捨五入はどちらが一般的ですか？", answer: "日本の商慣習では切り捨て（FLOOR/DOWN）が多いですが、契約や業種で異なるため要確認です。" },
-      { question: "軽減税率と標準税率を混在させるときの注意点は？", answer: "明細行ごとに税率を判定し、税率別に小計を出してから合算する方法が安全です。" },
+      { question: "明細ごとと合計とで税額が1円ずれるのはなぜですか？", answer: "切り捨てを行うタイミングが違うためです。どちらが正しいかではなく取引先との合意の問題なので、請求書の端数処理方式を仕様として明文化しておく必要があります。" },
+      { question: "double で計算して最後に丸めれば十分ではないですか？", answer: "0.1 や 0.08 は2進数で正確に表現できず、丸める前の値がすでにずれていることがあります。金額は入口から BigDecimal で持つのが安全です。" },
+      { question: "税率はコードにどう持たせるべきですか？", answer: "定数化したうえで適用開始日とセットで管理すると、税率改定時に過去日付の取引を正しく再計算できます。改定が見込まれるならマスタテーブル化も有効です。" },
     ],
     codeTitle: "消費税計算ユーティリティ",
     codeSample: `import java.math.BigDecimal;
@@ -99,13 +99,25 @@ public class TaxCalculator {
 
     public static void main(String[] args) {
         var price = new BigDecimal("1980");
-        System.out.println("税抜: " + price);
-        System.out.println("税込(10%): " +
-            withTax(price, STANDARD_RATE,
-                RoundingMode.FLOOR));
-        System.out.println("税込(8%): " +
-            withTax(price, REDUCED_RATE,
-                RoundingMode.FLOOR));
+        System.out.println("税込(10%): "
+            + withTax(price, STANDARD_RATE, RoundingMode.FLOOR));
+        // → 2178
+
+        // 税込からの逆算: 2178 円 → 税抜 1980 円 に戻る
+        System.out.println("税抜: "
+            + withoutTax(new BigDecimal("2178"),
+                STANDARD_RATE, RoundingMode.FLOOR));
+        // → 1980
+
+        // 端数処理のタイミングで合計が変わる例: 335 円 × 3 点（10%）
+        var item = new BigDecimal("335");
+        var perLine = withTax(item, STANDARD_RATE, RoundingMode.FLOOR)
+            .multiply(new BigDecimal("3"));
+        var onTotal = withTax(item.multiply(new BigDecimal("3")),
+            STANDARD_RATE, RoundingMode.FLOOR);
+        System.out.println("明細ごとに切り捨て: " + perLine);  // → 1104
+        System.out.println("合計に対して切り捨て: " + onTotal); // → 1105
+        // 1 円ずれる。どちらを採用するかは取引先との合意事項
     }
 }`,
   },
@@ -119,11 +131,11 @@ public class TaxCalculator {
     apiNames: ["BigDecimal", "MathContext"],
     toolSlug: "percentage-calculator",
     description: "Java の BigDecimal で割合計算・増減率・逆算を実装し、業務システムでの精度管理を外部ライブラリ不要の Pure Java で Java 8/17/21 対応で解説する。",
-    lead: "売上の前年比、KPI の達成率、原価率の算出など、割合計算は業務システムのあらゆる場面で登場します。double で計算すると丸め誤差が蓄積されるため、帳票や報告書の数値が微妙にずれるリスクがあります。とくに明細行ごとの割合を積み上げて合計を出す処理では、蓄積誤差が最終行で顕在化し、帳票の合計欄が手計算と一致しないという指摘につながることがあります。BigDecimal を使った割合の算出、増減率の計算、百分率から実数への逆算を整理した。MathContext でスケールと丸めモードを管理する方法も示す。",
+    lead: "「達成率の合計が 100% にならない」「前年比の符号が逆になっている」――割合計算はロジック自体が単純なだけに、こうした指摘が帳票のリリース直前に飛んでくると原因の切り分けに手間取ります。原因の多くは、double の丸め誤差の蓄積か、分母の定義のあいまいさです。前年比なのか前月比なのか、分母がゼロの月をどう扱うのか。計算式より先にここを固めておかないと、実装は何度も手戻りします。この記事では、BigDecimal による割合・増減率・逆算の実装を軸に、MathContext での精度管理、ゼロ除算のガード、表示桁数の統一といった、レポート系機能で毎回問われるポイントを整理します。",
     useCases: [
-      "月次レポートで売上の前月比・前年比を算出する",
-      "KPI ダッシュボードで達成率を小数第1位まで表示する",
-      "原価率から売価を逆算する",
+      "月次売上レポートで前年同月比を算出し、前年実績がゼロの月は「-」表示に振り分ける",
+      "KPI ダッシュボードで複数指標の達成率を小数第1位に統一して表示する",
+      "「粗利率 35% を確保できる売価」を原価から逆算して見積画面に提示する",
     ],
     cautions: [
       "割り算の結果が割り切れない場合は必ず RoundingMode を指定すること。",
@@ -133,7 +145,7 @@ public class TaxCalculator {
     ],
     relatedArticleSlugs: ["tax-calculation", "unit-conversion"],
     versionCoverage: {
-      java8: "BigDecimal と MathContext は Java 8 から使用可能。計算結果は個別の変数で管理する形になる。",
+      java8: "BigDecimal と MathContext は Java 8 でもそのまま使える。計算結果は個別の変数で管理する形になる。",
       java17: "var と record で計算結果を構造化できる。コードの意図が型で伝わりやすくなる。",
       java21: "sealed interface + switch 式で計算モード（割合・増減率・逆算）を型安全に分岐でき、モード追加時にコンパイルエラーで漏れを検出できる。",
       java8Code: `// Java 8: 明示的な型宣言で割合計算
@@ -172,9 +184,9 @@ BigDecimal result = switch (mode) {
       { name: "Guava（IntMath / DoubleMath）", whenToUse: "オーバーフローチェック付きの整数演算や、丸めモード指定付きの除算を簡潔に書きたいとき。", tradeoff: "BigDecimal ベースの割合計算には直接対応しない。整数演算のユーティリティが中心で、業務系の精度管理には BigDecimal を併用する形になる。" },
     ],
     faq: [
-      { question: "割合を表示するときの小数桁数はどうすべきですか？", answer: "業務要件次第ですが、小数第1位か第2位が一般的です。setScale で統一します。" },
-      { question: "増減率がマイナスの場合の表示はどうしますか？", answer: "BigDecimal の符号がそのまま正負を表すため、表示時にマイナス記号を付けるだけです。" },
-      { question: "MathContext と setScale の違いは？", answer: "MathContext は有効桁数と丸めモードを管理し、setScale は小数点以下の桁数を指定します。用途に応じて使い分けます。" },
+      { question: "前年実績が 0 のとき前年比はどう表示すべきですか？", answer: "数学的には計算不能なので、ゼロ除算ガードで弾いたうえで「-」や「新規」など業務的に意味の通る表示に振り分けます。この表示ルールは仕様として先に決めておきます。" },
+      { question: "割合は小数と百分率のどちらで持ち回すべきですか？", answer: "内部では 0.35 のような実数で統一し、×100 は表示の直前だけにするのが安全です。計算途中で百分率に変えると二重掛けのバグが起こりやすくなります。" },
+      { question: "MathContext と setScale はどう使い分けますか？", answer: "MathContext は計算途中の有効桁数の確保、setScale は最終表示の小数桁の統一に使います。除算時の ArithmeticException 防止には MathContext が必須です。" },
     ],
     codeTitle: "割合と増減率の計算",
     codeSample: `import java.math.BigDecimal;
@@ -198,6 +210,9 @@ public class PercentageCalc {
 
     public static BigDecimal changeRate(
             BigDecimal previous, BigDecimal current) {
+        if (previous.compareTo(BigDecimal.ZERO) == 0) {
+            throw new ArithmeticException("ゼロ除算");
+        }
         return current.subtract(previous)
             .divide(previous, MC)
             .multiply(new BigDecimal("100"))
@@ -207,13 +222,24 @@ public class PercentageCalc {
     public static void main(String[] args) {
         var total = new BigDecimal("2500");
         var part = new BigDecimal("750");
-        System.out.println("割合: " +
-            percentage(part, total) + "%");
+        System.out.println("構成比: " + percentage(part, total) + "%");
+        // → 30.0%
 
         var prev = new BigDecimal("1000");
         var curr = new BigDecimal("1250");
-        System.out.println("増減率: " +
-            changeRate(prev, curr) + "%");
+        System.out.println("増減率: " + changeRate(prev, curr) + "%");
+        // → 25.0%
+
+        // 減少ケース: 符号はそのままマイナスになる
+        System.out.println("増減率: " + changeRate(curr, prev) + "%");
+        // → -20.0%（1250 → 1000）
+
+        // 分母ゼロは例外で止め、表示側で業務ルールに振り分ける
+        try {
+            percentage(part, BigDecimal.ZERO);
+        } catch (ArithmeticException e) {
+            System.out.println("前年実績なし: -");
+        }
     }
 }`,
   },
@@ -227,11 +253,11 @@ public class PercentageCalc {
     apiNames: ["enum", "Map<String, BigDecimal>"],
     toolSlug: "unit-converter",
     description: "Java の enum と BigDecimal で単位変換を基準単位経由で実装し、拡張しやすい設計パターンを外部ライブラリ不要で Java 8/17/21 対応で解説する。",
-    lead: "長さ、重量、温度、速度などの単位変換は、物流、製造、科学技術計算などの業務で頻繁に必要になります。変換式を個別に書くと組み合わせ爆発が起きるため、基準単位を経由する設計が有効です。温度変換のように単純な係数乗算では対応できない単位系もあり、華氏と摂氏の変換ミスは海外取引先との仕様書やり取りで実際に起こりやすい問題です。enum で単位を定義し基準単位への変換係数を持たせることで、任意の単位間の変換を共通ロジックで扱う方法を整理した。",
+    lead: "単位変換のコードで怖いのは、変換式の誤りよりも「どの単位で値を持っているか」の認識ズレです。DB にはグラムで入っているのに画面はキログラム前提だった、海外仕様書の温度が華氏だったのに摂氏として計算していた――このたぐいの不具合はコンパイルも通り、テストも一見通ってしまうため、発見が遅れがちです。実装面では、N 種類の単位を相互変換しようとして N×N 通りの変換式を書き始めると保守が破綻します。この記事では、enum に基準単位への係数を持たせて「基準単位を経由して変換する」設計パターンを軸に、BigDecimal での係数管理、温度のようにオフセットが絡む単位系の扱い、単位を追加するときの拡張手順を整理します。",
     useCases: [
-      "物流システムで重量をkg/lb/ozなど複数単位で入出力する",
-      "製造システムで寸法をmm/cm/inchで変換する",
-      "科学技術計算で温度をCelsius/Fahrenheit/Kelvinで変換する",
+      "海外倉庫とのデータ連携で、lb 単位で届く重量を kg に揃えて在庫システムへ取り込む",
+      "図面管理システムで inch 表記の寸法を mm に変換し、公差計算の基準を統一する",
+      "設備モニタリングで華氏で送られてくるセンサー値を摂氏に変換して閾値判定にかける",
     ],
     cautions: [
       "温度変換は単純な係数乗算ではないため、別途ロジックが必要。",
@@ -241,7 +267,7 @@ public class PercentageCalc {
     ],
     relatedArticleSlugs: ["tax-calculation", "percentage-calculation"],
     versionCoverage: {
-      java8: "enum に変換係数を持たせる設計は Java 8 から可能。変換メソッドは static メソッドで記述する。",
+      java8: "enum に変換係数を持たせる設計は Java 8 でもそのまま使える。変換メソッドは static メソッドで記述する。",
       java17: "record + switch 式で変換ロジックを簡潔に書ける。var による型推論で記述量も減る。",
       java21: "sealed interface で単位系（長さ・重量・温度）を型階層として表現でき、単位系の追加漏れをコンパイル時に検出できる。",
       java8Code: `// Java 8: enum + double で変換係数を管理
@@ -282,9 +308,9 @@ BigDecimal convert(BigDecimal v, UnitCategory cat) {
       { name: "自前 enum パターン（標準 API）", whenToUse: "変換対象の単位系が限定的で、係数を enum に持たせるだけで済む場合。依存ゼロで実装でき、拡張も enum 定数の追加だけで完結する。", tradeoff: "温度のようにオフセット変換が必要な単位系では enum の係数方式だけでは対応できず、個別ロジックの追加が必要になる。" },
     ],
     faq: [
-      { question: "基準単位方式の利点は何ですか？", answer: "N種類の単位があっても N×2 の変換メソッドで済み、N×N の組み合わせ爆発を防げます。" },
-      { question: "温度変換を基準単位方式で扱えますか？", answer: "Kelvin を基準にすれば可能ですが、Celsius⇔Fahrenheit のオフセット加算は個別ロジックが必要です。" },
-      { question: "単位を動的に追加したい場合は？", answer: "enum の代わりに Map で変換係数を管理すれば、設定ファイルや DB から読み込めます。" },
+      { question: "基準単位方式にすると何が楽になりますか？", answer: "単位を増やすときの修正が「基準単位への係数を1つ追加する」だけで済みます。相互変換式を個別に書く方式では、単位数の2乗のペースで式が増えていきます。" },
+      { question: "温度変換も同じ enum 方式で書けますか？", answer: "摂氏・華氏はオフセット（32度）の加減算が入るため、係数の乗除だけでは表現できません。温度だけは専用の変換メソッドに分離するのが素直な設計です。" },
+      { question: "変換係数を double で持つと何が起きますか？", answer: "0.0254 のような係数は2進数で誤差を含むため、乗除を繰り返すと下位桁がずれます。検査成績書や請求に関わる値なら BigDecimal で管理してください。" },
     ],
     codeTitle: "基準単位経由の単位変換",
     codeSample: `import java.math.BigDecimal;
@@ -323,9 +349,23 @@ public class UnitConverter {
         var feet = new BigDecimal("6");
         var cm = convert(feet,
             LengthUnit.FOOT, LengthUnit.CENTIMETER);
-        System.out.println(feet + " ft = " +
-            cm.setScale(2, RoundingMode.HALF_UP) +
-            " cm");
+        System.out.println(feet + " ft = "
+            + cm.setScale(2, RoundingMode.HALF_UP) + " cm");
+        // → 6 ft = 182.88 cm
+
+        // 逆変換して元の値に戻ることを確認（往復テストの基本形）
+        var back = convert(cm,
+            LengthUnit.CENTIMETER, LengthUnit.FOOT);
+        System.out.println("往復: "
+            + back.setScale(2, RoundingMode.HALF_UP) + " ft");
+        // → 6.00 ft
+
+        // 桁の離れた変換も基準単位（メートル）経由なら崩れない
+        var mm = new BigDecimal("1500000");
+        System.out.println(mm + " mm = "
+            + convert(mm, LengthUnit.MILLIMETER, LengthUnit.KILOMETER)
+                .setScale(1, RoundingMode.HALF_UP) + " km");
+        // → 1500000 mm = 1.5 km
     }
 }`,
   },

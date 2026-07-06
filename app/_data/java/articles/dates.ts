@@ -11,11 +11,11 @@ export const articles: JavaArticleDetail[] = [
     apiNames: ["LocalDate", "ChronoUnit.DAYS.between"],
     toolSlug: "business-days",
     description: "Java 標準 API の LocalDate で営業日計算を実装する方法を、土日祝の除外・締日スライドなど業務ルール込みで Java 8/17/21 対応で解説する。",
-    lead: "営業日の計算は、請求書の支払期日、納品日の算出、月次バッチのスケジュール管理など、業務システムで頻繁に必要になる処理です。Java 8 以降の LocalDate API を使えば、土日と祝日を除外しながら営業日を加減算するロジックを外部ライブラリなしで組み立てられます。祝日リストとの突き合わせ、締日のスライド処理、月末営業日の判定といった実務頻出パターンを整理し、再利用しやすいメソッドとして実装した。",
+    lead: "「発行日から5営業日以内に支払う」という契約条件をシステムに落とすとき、最初に突き当たるのが「営業日をどう数えるか」です。土日を除くだけなら DayOfWeek の判定で済みますが、実際の業務では祝日、年末年始の会社休業日、さらに「締日が休日なら前倒しか後ろ倒しか」という会社ごとのルールが絡んできます。Java 8 以降の LocalDate を使えば、この計算は外部ライブラリなしで実装できます。この記事では、営業日の加算メソッドを軸に、祝日リストとの突き合わせ、連休をまたぐ境界ケースの確認方法、締日スライドの考え方といった、実務で繰り返し出てくるパターンを再利用しやすい形に整理します。",
     useCases: [
-      "請求書の支払期日を「発行日から5営業日後」として自動算出する",
-      "月次バッチの実行日を「毎月最終営業日」に設定する",
-      "納品予定日を土日祝を除いた営業日ベースで算出する",
+      "「発行日から5営業日後」と定められた請求書の支払期日を、受発注システムで自動算出する",
+      "月次の締め処理バッチを毎月最終営業日の夜間に起動するため、スケジューラに渡す実行日を求める",
+      "EC サイトの注文確認画面で、土日祝を除いた出荷予定日・納品予定日を表示する",
     ],
     cautions: [
       "祝日リストは年ごとに更新が必要。振替休日の判定ルールも考慮すること。",
@@ -26,7 +26,7 @@ export const articles: JavaArticleDetail[] = [
     relatedArticleSlugs: ["japan-holiday-list", "wareki-conversion", "timezone-conversion"],
     versionCoverage: {
       java8: "LocalDate で基本的な営業日計算は可能。Set の初期化に Arrays.asList + HashSet が必要。",
-      java17: "Stream.iterate + datesUntil で営業日の抽出をストリームベースに記述できる。var で型宣言が簡潔になる。",
+      java17: "Stream.iterate で営業日の抽出をストリームベースに記述できる。var で型宣言が簡潔になる。",
       java21: "基本は Java 17 と同じ。sealed interface で営業日判定ルール（祝日・会社休日・曜日）を型安全に定義し、switch パターンマッチングで判定ロジックを整理できる。",
       java8Code: `// Java 8: while ループで1日ずつ加算して判定
 LocalDate date = from;
@@ -56,9 +56,9 @@ String msg = switch (date.getDayOfWeek()) {
       { name: "ThreeTen-Extra", whenToUse: "営業日計算やカスタムカレンダーが必要な場合。", tradeoff: "依存が増える。Pure Java の DayOfWeek + 祝日リストで十分なケースが多い。" },
     ],
     faq: [
-      { question: "祝日リストはどこから取得すればよいですか？", answer: "内閣府のCSVデータを年次で取り込むか、自前の定数テーブルで管理する方法が一般的です。祝日は法改正で変わるため、外部ソースからの定期取り込みが確実です。" },
-      { question: "土曜を営業日に含めたい場合はどうしますか？", answer: "除外判定のDayOfWeekリストからSATURDAYを外すだけで対応できます。判定条件を外部設定にしておくと業種ごとの切り替えも容易です。" },
-      { question: "営業日計算の精度を確認するテスト方法は？", answer: "祝日が連続する年末年始やGWの期間で境界値テストを行うのが効果的です。祝日と土日が重なるケースが最もずれやすいためです。" },
+      { question: "「5営業日後」の起算日は当日と翌日のどちらですか？", answer: "契約や社内規程によって異なります。実装より先に決めるべき仕様で、この記事のコードは翌日起算（当日を含めない）です。テストケースに起算日の想定を明記しておくと認識ズレを防げます。" },
+      { question: "祝日リストはどう用意するのが現実的ですか？", answer: "内閣府が公開している祝日 CSV を年次で取り込む方法が確実です。小規模なら定数テーブルでも回りますが、更新の担当と時期を決めておかないと翌年の祝日が漏れます。" },
+      { question: "営業日計算のテストはどこを重点的に確認すべきですか？", answer: "祝日と土日が連続する年末年始とゴールデンウィークが最も崩れやすい境界です。振替休日を含む週をまたぐ加算のケースを必ず入れてください。" },
     ],
     codeTitle: "営業日を加算するメソッド",
     codeSample: `import java.time.DayOfWeek;
@@ -73,6 +73,10 @@ public class BusinessDayCalculator {
 
     public static LocalDate addBusinessDays(
             LocalDate start, int days, List<LocalDate> holidays) {
+        if (days < 0) {
+            throw new IllegalArgumentException(
+                "days は 0 以上を指定してください: " + days);
+        }
         var current = start;
         var remaining = days;
         while (remaining > 0) {
@@ -86,13 +90,33 @@ public class BusinessDayCalculator {
     }
 
     public static void main(String[] args) {
+        // 2025年の祝日（1月と GW 前後を抜粋）
         var holidays = List.of(
-            LocalDate.of(2025, 1, 1),
-            LocalDate.of(2025, 1, 13)
+            LocalDate.of(2025, 1, 1),    // 元日
+            LocalDate.of(2025, 1, 13),   // 成人の日
+            LocalDate.of(2025, 4, 29),   // 昭和の日
+            LocalDate.of(2025, 5, 3),    // 憲法記念日
+            LocalDate.of(2025, 5, 4),    // みどりの日
+            LocalDate.of(2025, 5, 5),    // こどもの日
+            LocalDate.of(2025, 5, 6)     // 振替休日
         );
-        var start = LocalDate.of(2025, 1, 10);
-        var result = addBusinessDays(start, 3, holidays);
-        System.out.println(start + " から 3 営業日後: " + result);
+
+        // 通常ケース: 金曜起点。三連休（土日 + 成人の日）をまたぐ
+        var friday = LocalDate.of(2025, 1, 10);
+        System.out.println(friday + " の 3 営業日後: "
+            + addBusinessDays(friday, 3, holidays));
+        // → 2025-01-16（1/11〜13 を除外）
+
+        // 境界ケース: GW 直前起点。連休を丸ごとスキップ
+        var beforeGw = LocalDate.of(2025, 4, 30);
+        System.out.println(beforeGw + " の 3 営業日後: "
+            + addBusinessDays(beforeGw, 3, holidays));
+        // → 2025-05-07（5/3〜6 の連休と土日を除外）
+
+        // 0 日加算は起点日をそのまま返す（仕様として明示しておく）
+        System.out.println(friday + " の 0 営業日後: "
+            + addBusinessDays(friday, 0, holidays));
+        // → 2025-01-10
     }
 }`,
   },
@@ -106,16 +130,16 @@ public class BusinessDayCalculator {
     apiNames: ["LocalDate", "List<String>"],
     toolSlug: "japan-holidays",
     description: "Java 標準 API で日本の祝日一覧を管理し、営業日ロジックに流用しやすい日付リストとして扱う方法を外部ライブラリ不要で Java 8/17/21 対応で解説する。",
-    lead: "営業日計算や帳票の日付処理で、日本の祝日を判定する必要は頻繁に生じます。しかし Java 標準 API には祝日カレンダーが含まれていないため、自前でリストを管理するか、外部データを取り込む仕組みが必要です。祝日法は改正されることがあり、春分の日・秋分の日は天文計算に基づくため、ハードコードだけでは運用が回らない場面も出てきます。祝日データを定数リストとして管理しつつ年ごとの更新を容易にする構成、振替休日の自動算出ルール、春分・秋分の近似計算、営業日ロジックへの接続方法まで、実務でそのまま使える形に整えた。",
+    lead: "Java には Calendar や LocalDate はあっても、「日本の祝日」を返す標準 API はありません。営業日計算や帳票の日付処理で祝日判定が必要になった途端、祝日データを自前で持つ設計を迫られます。ここで悩ましいのがデータの持ち方です。固定日の祝日だけならハードコードでも動きますが、成人の日のようなハッピーマンデー、日曜と重なったときの振替休日、天文計算で決まる春分・秋分が絡むと、単純な定数リストでは翌年に破綻します。この記事では、固定祝日とハッピーマンデーを LocalDate のリストとして組み立てるコードを軸に、振替休日の算出ルール、年次更新を回しやすくするデータ構成、営業日ロジックへのつなぎ方を整理します。",
     useCases: [
-      "年度ごとの祝日マスタを CSV から読み込み、営業日判定に使う",
-      "帳票の出力日が祝日に当たる場合に前営業日にスライドさせる",
-      "カレンダー表示で祝日に色を付ける処理のデータソースにする",
+      "経理システムの支払予定日計算で使う祝日マスタを、年初に一括生成して DB に登録する",
+      "帳票の出力予定日が祝日に当たったとき、前営業日へ自動スライドさせる判定に使う",
+      "シフト管理画面のカレンダー表示で、祝日セルの背景色を変えるためのデータソースにする",
     ],
     cautions: [
       "春分の日・秋分の日は天文計算に基づくため、数年先の日付は暫定値になる。",
       "祝日法の改正で祝日が追加・変更される可能性がある。",
-      "振替休日は「祝日が日曜に当たった場合、翌月曜が休日」というルール。",
+      "振替休日は「祝日が日曜のとき、その後の最初の祝日でない日が休日になる」ルール。連休中は翌月曜とは限らない。",
       "「山の日」（2016年制定）など比較的新しい祝日が漏れているコードを保守案件でよく見かける。法定祝日の追加・変更は内閣府のウェブサイトで確認し、年次でリストを見直す運用ルールをチームで決めておくこと。",
     ],
     relatedArticleSlugs: ["localdate-business-days", "wareki-conversion"],
@@ -164,9 +188,9 @@ String desc = switch (type) {
       { name: "Jollyday", whenToUse: "各国の祝日データをライブラリに委ねたいとき。", tradeoff: "日本の法改正への追従が遅れる場合がある。会社休業日は結局自前で追加が必要。" },
     ],
     faq: [
-      { question: "祝日データは毎年手動で更新するのですか？", answer: "内閣府の公開CSVを年初に取り込むバッチを組むのが現実的です。閣議決定で祝日が追加・移動されるため、自動取得の仕組みがあると安心です。" },
-      { question: "振替休日を自動判定できますか？", answer: "祝日が日曜なら翌月曜を振替休日とするルールをコードで表現できます。国民の祝日に関する法律第3条に基づく判定ロジックを実装します。" },
-      { question: "祝日リストをDBで管理すべきですか？", answer: "更新頻度が年1回程度なら定数管理で十分です。複数サービスで共有する場合や頻繁な変更がある場合はDB管理を検討します。" },
+      { question: "祝日データの更新はいつ・誰がやるべきですか？", answer: "内閣府の公開 CSV は例年2月頃に翌年分が確定します。年次バッチで取り込むか、運用カレンダーに更新タスクを登録して担当者を決めておくのが現実的です。" },
+      { question: "振替休日はコードで自動算出できますか？", answer: "「祝日が日曜なら直後の平日を休日にする」という祝日法第3条のルールなので実装できます。2つの祝日に挟まれた国民の休日も忘れずに扱う必要があります。" },
+      { question: "祝日リストは DB と定数のどちらで持つべきですか？", answer: "更新が年1回で参照するサービスが1つなら定数で十分です。複数システムで共有する場合や期中の変更に即応したい場合は DB やマスタ API に寄せます。" },
     ],
     codeTitle: "祝日一覧を LocalDate リストで管理する",
     codeSample: `import java.time.DayOfWeek;
@@ -201,24 +225,43 @@ public class JapanHolidays {
         return first.plusDays(offset + 7L * (n - 1));
     }
 
-    // 固定日 + Happy Monday 祝日を結合
+    // 固定日 + ハッピーマンデー + 振替休日を結合
     public static List<LocalDate> getHolidays(int year) {
         var holidays = new ArrayList<>(getFixedHolidays(year));
         holidays.add(nthMonday(year, Month.JANUARY, 2));   // 成人の日
         holidays.add(nthMonday(year, Month.JULY, 3));       // 海の日
         holidays.add(nthMonday(year, Month.SEPTEMBER, 3));  // 敬老の日
         holidays.add(nthMonday(year, Month.OCTOBER, 2));    // スポーツの日
-        // 春分・秋分の近似計算、振替休日は省略
-        // 完全な実装は japan-holidays ツールを参照
+
+        // 振替休日: 日曜に当たった祝日の直後の平日を追加する
+        var substitutes = new ArrayList<LocalDate>();
+        for (var holiday : holidays) {
+            if (holiday.getDayOfWeek() == DayOfWeek.SUNDAY) {
+                var next = holiday.plusDays(1);
+                while (holidays.contains(next)) {
+                    next = next.plusDays(1);  // 連休中は後ろへずらす
+                }
+                substitutes.add(next);
+            }
+        }
+        holidays.addAll(substitutes);
+        // 春分・秋分は天文計算のため、近似式か外部データで補完する
         holidays.sort(LocalDate::compareTo);
         return holidays;
     }
 
     public static void main(String[] args) {
-        var holidays = getHolidays(2025);
-        holidays.forEach(h ->
-            System.out.println(h + " (" + h.getDayOfWeek() + ")")
-        );
+        for (var h : getHolidays(2025)) {
+            System.out.println(h + " (" + h.getDayOfWeek() + ")");
+        }
+        // 2025-01-01 (WEDNESDAY), 2025-01-13 (MONDAY), ... と並ぶ
+
+        // 振替休日の確認: 2026年は憲法記念日(5/3)が日曜。
+        // 5/4 みどりの日・5/5 こどもの日を飛ばして 5/6(水) が振替休日
+        var h2026 = getHolidays(2026);
+        System.out.println("2026-05-06 は休日か: "
+            + h2026.contains(LocalDate.of(2026, 5, 6)));
+        // → true
     }
 }`,
   },
@@ -232,11 +275,11 @@ public class JapanHolidays {
     apiNames: ["JapaneseDate", "DateTimeFormatter"],
     toolSlug: "wareki",
     description: "Java 標準 API の JapaneseDate と DateTimeFormatter で和暦・西暦の相互変換を実装し、元号境界の安全な処理を Java 8/17/21 対応で解説する。",
-    lead: "和暦変換は帳票出力や公文書対応で避けて通れない処理です。Java には JapaneseChronology が標準で用意されており、外部ライブラリなしで和暦と西暦の変換ができます。ただし、元号境界（平成から令和の 2019/5/1 など）のエッジケースや、フォーマット文字列の落とし穴があるため、ロジック設計には注意が必要です。JapaneseDate と DateTimeFormatter を使った変換の基本から、境界日の安全な処理、帳票向けの書式設定まで整理した。",
+    lead: "帳票や公文書まわりの開発では、いまだに和暦の要件が現役です。厄介なのは変換そのものではなく、境界と表記です。2019年は4月30日までが平成31年、5月1日からが令和元年で、年単位の変換テーブルでは正しく扱えません。さらに「令和1年」と「令和元年」のどちらで出力するかは帳票ごとに要件が分かれ、リリース後に指摘されがちなポイントでもあります。Java には JapaneseDate と JapaneseChronology が標準で入っており、こうした境界処理を含めて外部ライブラリなしで実装できます。この記事では、西暦と和暦の相互変換の基本形から、元号境界日の扱い、「元年」表記への対応、帳票向けフォーマットの組み立てまでを順に確認します。",
     useCases: [
-      "帳票の日付欄を「令和○年○月○日」形式で出力する",
-      "ユーザーが入力した和暦日付を西暦の LocalDate に変換して DB に保存する",
-      "元号をまたぐ期間計算（平成30年〜令和2年は何年間か）を行う",
+      "自治体・官公庁向け帳票の日付欄を「令和7年3月15日」形式で出力する",
+      "紙の申込書から転記された和暦の生年月日を、西暦の LocalDate に変換して DB へ保存する",
+      "改元をまたぐ契約期間（平成30年〜令和2年）の年数計算を、境界日を考慮して正しく行う",
     ],
     cautions: [
       "JapaneseDate は明治6年（1873年）以降しか扱えない。",
@@ -246,7 +289,7 @@ public class JapanHolidays {
     ],
     relatedArticleSlugs: ["localdate-business-days", "japan-holiday-list"],
     versionCoverage: {
-      java8: "JapaneseDate は Java 8 から使用可能。ただし令和の元号は Java 8u221 以降、Java 11.0.3 以降、または Java 12.0.1 以降で対応。",
+      java8: "JapaneseDate は Java 8 から使用可能。ただし令和の元号は Java 8u212 以降、Java 11.0.3 以降、または Java 12.0.1 以降で対応。",
       java17: "令和に完全対応。switch 式で元号略称の分岐が簡潔に書ける。record との組み合わせで変換結果を型安全に返せる。",
       java21: "sealed interface で元号を型安全に表現し、パターンマッチング switch で元号ごとの処理を網羅的に記述できる。",
       java8Code: `// Java 8: if-else で元号略称を分岐
@@ -291,20 +334,24 @@ String text = switch (era) {
       { name: "ICU4J", whenToUse: "より高度な国際化や暦体系が必要な場合。", tradeoff: "JAR サイズが大きく（約11MB）、和暦変換だけなら標準 API で十分。" },
     ],
     faq: [
-      { question: "令和以外の新しい元号が追加された場合はどうなりますか？", answer: "JDK のアップデートで新元号が追加されるため、JDK のバージョンを上げれば自動対応します。元号データは CLDR に含まれており、パッチリリースで配信されます。" },
-      { question: "和暦の表示で「元年」と表示するにはどうしますか？", answer: "DateTimeFormatter で FULL スタイルを使えば、1年目は自動的に「元年」と表示されます。" },
-      { question: "明治以前の日付を和暦で扱えますか？", answer: "JapaneseDate は明治6年以降のみ対応です。それ以前は旧暦との対応が必要になるため、自前のロジックが必要です。" },
+      { question: "2019年5月1日より前の日付を変換するとどうなりますか？", answer: "JapaneseDate が境界日を判定するため、2019年4月30日は平成31年、5月1日は令和元年と正しく変換されます。自前の年単位テーブル変換では境界日でずれます。" },
+      { question: "「令和1年」ではなく「令和元年」と表示できますか？", answer: "標準のフォーマッタでは「令和1年」と出力されます。「元年」表記が帳票要件にあるなら、DateTimeFormatterBuilder で1年目だけ「元」を割り当てるカスタムフォーマッタを組みます。" },
+      { question: "次の改元があったとき、コードの修正は必要ですか？", answer: "元号データは JDK 側が持っているため、原則は JDK のアップデートだけで追従できます。ただし元号略称の変換など自前実装した部分は修正が必要です。" },
     ],
     codeTitle: "和暦と西暦を相互変換するユーティリティ",
     codeSample: `import java.time.LocalDate;
+import java.time.chrono.JapaneseChronology;
 import java.time.chrono.JapaneseDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public class WarekiConverter {
 
+    // withChronology を忘れると ISO 暦でパースされ、
+    // fromWareki が DateTimeParseException になる
     private static final DateTimeFormatter WAREKI_FMT =
-        DateTimeFormatter.ofPattern("GGGGy年M月d日", Locale.JAPAN);
+        DateTimeFormatter.ofPattern("GGGGy年M月d日", Locale.JAPAN)
+            .withChronology(JapaneseChronology.INSTANCE);
 
     public static String toWareki(LocalDate date) {
         var jpDate = JapaneseDate.from(date);
@@ -320,9 +367,18 @@ public class WarekiConverter {
     public static void main(String[] args) {
         var today = LocalDate.of(2025, 3, 15);
         System.out.println(today + " → " + toWareki(today));
+        // → 2025-03-15 → 令和7年3月15日
 
         var parsed = fromWareki("令和7年3月15日");
         System.out.println("令和7年3月15日 → " + parsed);
+        // → 2025-03-15
+
+        // 元号境界: 2019/4/30 と 2019/5/1 で元号が切り替わる
+        System.out.println(toWareki(LocalDate.of(2019, 4, 30)));
+        // → 平成31年4月30日
+        System.out.println(toWareki(LocalDate.of(2019, 5, 1)));
+        // → 令和1年5月1日
+        //   （GGGGy パターンでは「元年」ではなく「1年」になる点に注意）
     }
 }`,
   },
@@ -336,11 +392,11 @@ public class WarekiConverter {
     apiNames: ["ZonedDateTime", "ZoneId"],
     toolSlug: "timezone",
     description: "Java 標準 API の ZonedDateTime でタイムゾーン間の時差比較と、保存時刻のズレ防止策を外部ライブラリ不要の Pure Java で Java 8/17/21 対応で解説する。",
-    lead: "海外拠点との連携やクラウドサービスとの通信で、タイムゾーンの扱いは避けて通れません。Java 8 以降の ZonedDateTime と ZoneId を使えば、JST / UTC / EST などの時差変換を安全に行えます。ただし、サマータイムの切り替わりタイミングや、DB への保存形式の選び方を間違えると、1 時間のズレや日付の食い違いが本番で発生します。タイムゾーン変換の基本操作から、サマータイムが絡むエッジケースの扱い、UTC で統一して保存する設計パターンまで整理した。",
+    lead: "タイムゾーン起因の不具合は、開発環境では再現せず本番で初めて発覚することが多い、質の悪い部類の問題です。日本国内向けのシステムでも、クラウド上のサーバが UTC で動いていたために保存時刻が9時間ずれていた、という話は珍しくありません。Java 8 以降の ZonedDateTime と ZoneId を使えば時差の変換自体は難しくありませんが、本当に重要なのは「どの時点で、どのタイムゾーンとして扱うか」という設計の方です。この記事では、JST・UTC・海外拠点間の変換の基本操作を確認したうえで、UTC で保存して表示時に変換する定石パターン、サマータイムの切り替わりが絡むときの注意点までを整理します。",
     useCases: [
-      "海外拠点のシステムとデータ連携する際に UTC で統一して保存する",
-      "ユーザーのタイムゾーンに合わせて表示時刻を変換する",
-      "ログのタイムスタンプを複数のタイムゾーンで比較する",
+      "UTC で動くクラウドサーバと日本のクライアント間で、注文日時をずれなく保存・表示する",
+      "米国拠点とのファイル連携で、先方のタイムスタンプ（EST/EDT）を JST に変換して照合する",
+      "障害調査で、アプリログ（JST）とクラウド監視サービスのログ（UTC）の時刻を突き合わせる",
     ],
     cautions: [
       "DB には UTC で保存し、表示時にユーザーのタイムゾーンに変換するのが安全。",
@@ -352,7 +408,7 @@ public class WarekiConverter {
     versionCoverage: {
       java8: "ZonedDateTime は Java 8 から使用可能。withZoneSameInstant でタイムゾーン変換ができる。",
       java17: "基本的な使い方は Java 8 と同じ。switch 式で出力フォーマットの切り替えが簡潔に書ける。",
-      java21: "IANA タイムゾーンデータベースの更新が反映される。switch 式のパターンマッチングでタイムゾーン別のラベル表示などを簡潔に分岐できる。",
+      java21: "タイムゾーン API 自体に大きな変更はない（tzdata の更新は JDK のアップデートで反映される）。switch 式でタイムゾーン別のラベル表示などを簡潔に分岐できる。",
       java8Code: `// Java 8: ZonedDateTime でタイムゾーン変換
 ZonedDateTime jstNow = ZonedDateTime.now(
     ZoneId.of("Asia/Tokyo"));
@@ -365,7 +421,7 @@ OffsetDateTime jstOffset = OffsetDateTime.now(
 DateTimeFormatter iso =
     DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 System.out.println(jstOffset.format(iso));`,
-      java17Code: `// Java 17: switch 式で税率切り替えと同様の書き方
+      java17Code: `// Java 17: DB へは UTC で保存し、表示時に JST へ変換する
 var now = ZonedDateTime.now(ZoneId.of("Asia/Tokyo"));
 // DB保存は UTC、表示は JST パターン
 String dbValue = now.withZoneSameInstant(ZoneId.of("UTC"))
@@ -390,9 +446,9 @@ String label = switch (zone) {
       { name: "ThreeTen-Extra", whenToUse: "追加の時間量型や Interval が必要な場合。", tradeoff: "標準の ZonedDateTime で大半のケースは十分。" },
     ],
     faq: [
-      { question: "タイムゾーンの一覧はどうやって取得しますか？", answer: "ZoneId.getAvailableZoneIds() で全タイムゾーンIDを取得できます。600以上のIDが返るため、実用上はリージョン形式（Asia/Tokyo等）に絞ると扱いやすくなります。" },
-      { question: "サマータイムの影響を避けるにはどうしますか？", answer: "内部的には UTC で処理し、表示時のみローカルタイムに変換するのが安全です。UTC基準なら時刻の重複や欠落が発生しないためです。" },
-      { question: "ZonedDateTime と OffsetDateTime の違いは？", answer: "ZonedDateTime はタイムゾーンルール（サマータイム等）を含み、OffsetDateTime は固定オフセットのみです。" },
+      { question: "国内向けシステムでもタイムゾーンを意識する必要がありますか？", answer: "あります。クラウドのサーバやコンテナは UTC がデフォルトのことが多く、JVM のデフォルトタイムゾーン頼みのコードは実行環境が変わった瞬間に9時間ずれます。" },
+      { question: "DB にはどの形式で日時を保存すべきですか？", answer: "UTC に統一して保存し、表示時にユーザーのタイムゾーンへ変換するのが定石です。JDBC ドライバの接続設定でもタイムゾーンを明示しておくと安全です。" },
+      { question: "ZonedDateTime と OffsetDateTime はどう使い分けますか？", answer: "サマータイムの規則ごと扱いたいなら ZonedDateTime、+09:00 のような固定オフセットでの保存・データ交換には OffsetDateTime が向きます。" },
     ],
     codeTitle: "複数タイムゾーンの時刻を比較する",
     codeSample: `import java.time.ZoneId;
@@ -402,20 +458,28 @@ import java.time.format.DateTimeFormatter;
 public class TimezoneCompare {
 
     public static void main(String[] args) {
-        var now = ZonedDateTime.now(ZoneId.of("Asia/Tokyo"));
-        var zones = java.util.List.of(
-            "Asia/Tokyo", "UTC", "America/New_York",
-            "Europe/London", "Asia/Shanghai"
-        );
-        var fmt = DateTimeFormatter.ofPattern(
-            "yyyy-MM-dd HH:mm:ss z");
+        var fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z");
 
-        for (var zone : zones) {
-            var converted = now.withZoneSameInstant(
-                ZoneId.of(zone));
-            System.out.printf("%-20s %s%n",
-                zone, converted.format(fmt));
+        // 日本時間 2025-03-10 09:00 を各拠点の時刻へ変換
+        var jst = ZonedDateTime.of(2025, 3, 10, 9, 0, 0, 0,
+            ZoneId.of("Asia/Tokyo"));
+        for (var zone : java.util.List.of(
+                "Asia/Tokyo", "UTC", "America/New_York")) {
+            System.out.printf("%-18s %s%n", zone,
+                jst.withZoneSameInstant(ZoneId.of(zone)).format(fmt));
         }
+        // Asia/Tokyo        2025-03-10 09:00 JST
+        // UTC               2025-03-10 00:00 UTC
+        // America/New_York  2025-03-09 20:00 EDT
+
+        // サマータイム境界: NY は 2025/3/9 に夏時間入りするため、
+        // 前々日の同時刻では JST との時差が 1 時間広い
+        var beforeDst = ZonedDateTime.of(2025, 3, 8, 9, 0, 0, 0,
+            ZoneId.of("Asia/Tokyo"));
+        System.out.println(beforeDst
+            .withZoneSameInstant(ZoneId.of("America/New_York"))
+            .format(fmt));
+        // → 2025-03-07 19:00 EST（時差 14 時間。夏時間中は 13 時間）
     }
 }`,
   },

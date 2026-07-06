@@ -60,6 +60,15 @@ describe("site data", () => {
     ).toBe(true)
   })
 
+  it("keeps category articleCount aligned with the actual number of articles", () => {
+    for (const category of JAVA_CATEGORIES) {
+      const actual = JAVA_ARTICLES.filter((article) => article.categorySlug === category.slug).length
+      expect(actual, `category ${category.slug}: articleCount=${category.articleCount} but ${actual} articles exist`).toBe(
+        category.articleCount,
+      )
+    }
+  })
+
   it("returns multiple article and api suggestions for BigDecimal", () => {
     const bigDecimalSuggestions = getSearchSuggestions("BigDecimal")
     const articleSuggestions = bigDecimalSuggestions.filter((entry) => entry.type === "article")

@@ -20,44 +20,11 @@ import { JAVA_CATEGORIES } from "./categories"
 import { JAVA_ARTICLES } from "./articles/index"
 
 /**
- * AdSense 再審査向け公開記事リスト。
- * ここに含まれない記事は noindex になり、一覧・サイトマップ・検索から除外される。
- * 審査通過後、品質改善した記事から順に追加していく。
+ * 公開記事リスト。ここに含まれない記事は noindex になり、一覧・サイトマップ・検索から除外される。
+ * 現在は全記事を公開している（2026-07 に全公開へ切り替え）。
+ * 記事を絞り込む必要が生じた場合は、ここで対象 slug を列挙する形に戻す。
  */
-const PUBLISHED_SLUGS = new Set([
-  // --- ツール連携記事 (7) ---
-  "localdate-business-days",
-  "japan-holiday-list",
-  "wareki-conversion",
-  "timezone-conversion",
-  "tax-calculation",
-  "percentage-calculation",
-  "unit-conversion",
-  // --- カテゴリ代表記事 (23) ---
-  "singleton-pattern",
-  "builder-pattern",
-  "regex-basics",
-  "null-safe-string",
-  "stream-filter-map",
-  "csv-read-write",
-  "json-parsing",
-  "zengin-format",
-  "zengin-edi-zedi",
-  "zengin-charset",
-  "thread-basics",
-  "executor-service",
-  "virtual-threads",
-  "base64-encoding",
-  "password-hashing",
-  "junit5-basics",
-  "jdbc-basics",
-  "http-client-basic",
-  "batch-basic-structure",
-  "exception-chain",
-  "enum-basics",
-  "jvm-options",
-  "jvm-options-version-diff",
-])
+const PUBLISHED_SLUGS = new Set(JAVA_ARTICLES.map((article) => article.slug))
 
 export function isPublishedArticle(slug: string): boolean {
   return PUBLISHED_SLUGS.has(slug)
