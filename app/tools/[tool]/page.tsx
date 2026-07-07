@@ -211,6 +211,44 @@ export default async function ToolDetailPage({ params }: ToolPageProps) {
             </section>
           )}
 
+          {entry.overview?.length ? (
+            <section className="panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">About</p>
+                  <h2 className="section-title">このツールについて</h2>
+                </div>
+              </div>
+              <div className="compact-stack">
+                {entry.overview.map((paragraph) => (
+                  <p key={paragraph} className="section-copy">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {entry.usageSteps?.length ? (
+            <section className="panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">How To Use</p>
+                  <h2 className="section-title">使い方</h2>
+                </div>
+              </div>
+              <div className="compact-stack">
+                {entry.usageSteps.map((step, index) => (
+                  <div key={step} className="tree-item">
+                    <small>
+                      {index + 1}. {step}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section className="panel">
             <div className="section-header">
               <div>
@@ -253,6 +291,24 @@ export default async function ToolDetailPage({ params }: ToolPageProps) {
 
           {entry.status === "ready" ? (
             <AdSlot placement="tool" format="text" className="ad-seat ad-seat--inline" />
+          ) : null}
+
+          {entry.useCases?.length ? (
+            <section className="panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Use Cases</p>
+                  <h2 className="section-title">業務での使いどころ</h2>
+                </div>
+              </div>
+              <div className="compact-stack">
+                {entry.useCases.map((useCase) => (
+                  <div key={useCase} className="tree-item">
+                    <small>{useCase}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
           ) : null}
 
           {entry.cautions?.length ? (
